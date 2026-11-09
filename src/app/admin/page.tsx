@@ -2,7 +2,8 @@ import Link from 'next/link';
 import { z } from 'zod';
 import { supabase } from '@/lib/supabase';
 import { EditorForm } from './editor-form';
-import { login, logout, review, publish, withdraw } from './actions';
+import { Logout } from '@/app/components/logout';
+import { login, review, publish, withdraw } from './actions';
 
 type Category={id:string;name:string}; type Character={key:string;name:string};
 type Article={id:string;status:string;version:number;categoryId:string;revisionId:string;reviewHash:string|null;title:string;summary:string;paragraphs:string[];sources:{key:string;name:string;date:string;url:string}[];opinions:{characterKey:string;body:string}[]};
@@ -13,13 +14,13 @@ export default async function Admin({searchParams}:{searchParams:Promise<{id?:st
  const query=await searchParams; const db=await supabase(); const {data:{user}}=await db.auth.getUser();
  if(!user) return <main className="mx-auto max-w-lg p-6"><Link href="/">Riuya</Link><h1 className="my-6 text-3xl font-bold">Acceso editorial</h1>{query.msg && <p role="status">{query.msg}</p>}<form action={login} className="space-y-4"><label className="block">Correo<input className={field} name="email" type="email" autoComplete="username" required /></label><label className="block">Contraseña<input className={field} name="password" type="password" autoComplete="current-password" required /></label><button className={button}>Entrar</button></form></main>;
  const [listRes,catRes]=await Promise.all([db.schema('api').rpc('editor_list'),db.schema('api').rpc('editor_catalog')]);
- if(listRes.error || catRes.error) return <main className="mx-auto max-w-lg p-6"><h1 className="text-2xl font-bold">Acceso editorial no disponible</h1><p className="my-4">Tu cuenta debe tener el rol de editor activo. Si el servicio local no está iniciado, vuelve a intentarlo.</p><form action={logout}><button className={button}>Cerrar sesión</button></form></main>;
+ if(listRes.error || catRes.error) return <main className="mx-auto max-w-lg p-6"><h1 className="text-2xl font-bold">Acceso editorial no disponible</h1><p className="my-4">Tu cuenta debe tener el rol de editor activo. Si el servicio local no está iniciado, vuelve a intentarlo.</p><Logout userId={user.id}/></main>;
  const items=(listRes.data||[]) as Item[]; const catalog=catRes.data as {categories:Category[];characters:Character[]};
  let article:Article|null=null;
  if(query.id && z.uuid().safeParse(query.id).success){const result=await db.schema('api').rpc('editor_get',{p_id:query.id}); if(!result.error) article=result.data as Article;}
  const editable=!article || ['draft','review'].includes(article.status); const correctable=article?.status==='published';
  const inputs=<><input type="hidden" name="id" value={article?.id||''}/><input type="hidden" name="version" value={article?.version||0}/></>;
- return <main className="mx-auto max-w-5xl p-6 text-slate-900"><header className="flex flex-wrap items-center justify-between gap-4"><div><Link href="/" className="text-sm font-bold uppercase tracking-widest">Riuya</Link><h1 className="text-3xl font-bold">Mesa editorial</h1></div><form action={logout}><button className="underline">Cerrar sesión</button></form></header>
+ return <main className="mx-auto max-w-5xl p-6 text-slate-900"><header className="flex flex-wrap items-center justify-between gap-4"><div><Link href="/" className="text-sm font-bold uppercase tracking-widest">Riuya</Link><h1 className="text-3xl font-bold">Mesa editorial</h1></div><Logout userId={user.id}/></header>
  {query.msg && <p role="status" className="my-5 rounded-lg bg-cyan-100 p-4">{query.msg}</p>}
  <div className="mt-6 grid gap-8 md:grid-cols-[220px_1fr]"><nav aria-label="Noticias"><Link href="/admin" className={button}>Nueva noticia</Link><h2 className="mb-2 mt-6 font-bold">Noticias guardadas</h2>{items.length===0 && <p>No hay noticias todavía.</p>}<ul className="space-y-3">{items.map(x=><li key={x.id}><Link className="underline" href={`/admin?id=${x.id}`}>{x.title||'Sin título'}</Link><span className="block text-sm">{x.status} · versión {x.version}</span></li>)}</ul></nav>
  <section><h2 className="text-2xl font-bold">{article ? article.title||'Sin título' : 'Nueva noticia'}</h2><p className="my-3">{article?`Estado: ${article.status} · versión ${article.version}`:'Prepara un borrador. Guardar no publica.'}</p>

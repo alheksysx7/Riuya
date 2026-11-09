@@ -1,0 +1,12 @@
+insert into auth.users(id,email) values ('a04b0000-0000-4000-8000-000000000001','z04-one@example.invalid'),('a04b0000-0000-4000-8000-000000000002','z04-two@example.invalid');
+set local role authenticated;
+select set_config('request.jwt.claim.sub','a04b0000-0000-4000-8000-000000000001',true);
+do $$ declare r jsonb; begin r:=api.account_ensure_profile(); if r->>'id'<>'a04b0000-0000-4000-8000-000000000001' then raise exception 'Identidad incorrecta'; end if; perform api.account_ensure_profile(); end $$;
+select set_config('request.jwt.claim.sub','a04b0000-0000-4000-8000-000000000002',true);
+do $$ begin perform api.account_ensure_profile(); end $$;
+reset role;
+do $$ begin if (select count(*) from private.profiles where id in ('a04b0000-0000-4000-8000-000000000001','a04b0000-0000-4000-8000-000000000002'))<>2 or (select count(*) from private.user_roles where user_id in ('a04b0000-0000-4000-8000-000000000001','a04b0000-0000-4000-8000-000000000002') and role='user')<>2 then raise exception 'Perfil o rol incorrecto'; end if; if has_function_privilege('anon','api.account_ensure_profile()','EXECUTE') then raise exception 'Acceso anónimo'; end if; end $$;
+update private.profiles set account_status='deletion_pending' where id='a04b0000-0000-4000-8000-000000000002';
+set local role authenticated;
+do $$ begin begin perform api.account_ensure_profile(); raise exception 'Cuenta inactiva aceptada'; exception when insufficient_privilege then null; end; end $$;
+reset role;
