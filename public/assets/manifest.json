@@ -1,0 +1,4 @@
+{
+  "logo": {"path":"/assets/r8-icono-128.png","source":"Identidad R8 / R8_icono_128.png","status":"referencia local R8"},
+  "portraits": {"pathPattern":"/assets/personajes/{stableKey}.png","source":"Kit Visual V1.5 / Avatares Circulares 128","status":"referencia local; estado de aprobación y derechos pendientes de reconciliación entre fuentes","canonVersion":"V3.1"}
+}

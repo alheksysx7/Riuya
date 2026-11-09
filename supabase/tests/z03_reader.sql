@@ -1,0 +1,33 @@
+insert into private.categories(id,name,slug) values('cc030000-0000-4000-8000-000000000001','Categoría ficticia Z03','test-z03');
+create temp table z03_ids(id uuid primary key,revision uuid not null);
+insert into z03_ids select gen_random_uuid(),gen_random_uuid() from generate_series(1,21);
+insert into private.articles(id,category_id) select id,'cc030000-0000-4000-8000-000000000001' from z03_ids;
+insert into private.article_revisions(id,article_id,revision_number,title,micro_summary,full_paragraphs) select revision,id,1,'Prueba Z03','Resumen ficticio','[]'::jsonb from z03_ids;
+update private.articles a set current_revision_id=f.revision,status='published',published_at='2020-01-01 00:00:00+00' from z03_ids f where a.id=f.id;
+create temp table z03_result(cursor jsonb, ids uuid[]); grant select,insert,update on z03_result to anon;
+set local role anon;
+do $$ declare result jsonb; begin
+ result:=api.reader_feed('test-z03',null);
+ if jsonb_array_length(result->'items')<>10 or not (result->>'hasMore')::boolean then raise exception 'Primera página incorrecta'; end if;
+ insert into z03_result select result->'nextCursor',array_agg((x->>'id')::uuid) from jsonb_array_elements(result->'items') x;
+ begin perform api.reader_feed('test-z03','{}'::jsonb); raise exception 'Cursor inválido aceptado'; exception when invalid_parameter_value then null; end;
+end $$;
+reset role;
+insert into private.articles(id,category_id) values('cc030000-0000-4000-8000-000000000002','cc030000-0000-4000-8000-000000000001');
+insert into private.article_revisions(id,article_id,revision_number,title,micro_summary,full_paragraphs) values('cc030000-0000-4000-8000-000000000003','cc030000-0000-4000-8000-000000000002',1,'Nueva','Resumen','[]');
+update private.articles set current_revision_id='cc030000-0000-4000-8000-000000000003',status='published',published_at='2021-01-01' where id='cc030000-0000-4000-8000-000000000002';
+set local role anon;
+do $$ declare result jsonb; previous uuid[]; new_ids uuid[]; begin
+ select cursor,ids into result,previous from z03_result;
+ result:=api.reader_feed('test-z03',result); if jsonb_array_length(result->'items')<>10 or not (result->>'hasMore')::boolean then raise exception 'Segunda página incorrecta'; end if;
+ select array_agg((x->>'id')::uuid) into new_ids from jsonb_array_elements(result->'items') x;
+ if previous && new_ids or 'cc030000-0000-4000-8000-000000000002'::uuid=any(new_ids) then raise exception 'Paginación inestable'; end if;
+ result:=api.reader_feed('test-z03',result->'nextCursor'); if jsonb_array_length(result->'items')<>1 or (result->>'hasMore')::boolean then raise exception 'Tercera página incorrecta'; end if;
+ if (result->'items'->0->>'id')::uuid=any(previous || new_ids) then raise exception 'Registro duplicado'; end if;
+ if api.reader_article('cc030000-0000-4000-8000-000000000002')->>'title'<>'Nueva' then raise exception 'Noticia publicada no visible'; end if;
+end $$;
+reset role;
+update private.articles set status='withdrawn',withdrawn_at=now(),withdrawal_reason='Prueba' where id='cc030000-0000-4000-8000-000000000002';
+set local role anon;
+do $$ begin if api.reader_article('cc030000-0000-4000-8000-000000000002') is not null then raise exception 'Retirada visible'; end if; end $$;
+reset role;
