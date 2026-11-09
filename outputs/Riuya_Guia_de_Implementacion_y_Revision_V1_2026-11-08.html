@@ -1,0 +1,373 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="description" content="Especificación técnica de implementación local del MVP Riuya y transición posterior a servidor"><title>Riuya Guía de implementación y revisión por funcionalidades</title><style>*{box-sizing:border-box}html{scroll-behavior:smooth;scroll-padding-top:90px}body{margin:0;background:#f4f7fb;color:#273746;font:16px/1.75 system-ui,Segoe UI,sans-serif}aside{position:fixed;inset:0 auto 0 0;width:285px;background:#13243a;color:#e1eaf3;display:flex;flex-direction:column;padding:25px 20px;z-index:3}.brand{font-size:29px;font-weight:650;color:white;letter-spacing:-1px}.edition{font-size:11px;color:#a0bacd;line-height:1.7;margin:4px 0 20px;letter-spacing:1px}aside nav{overflow:auto;flex:1;padding-right:5px}aside a{display:block;color:#c1d0de;text-decoration:none;font-size:11px;line-height:1.5;padding:8px 9px;border-radius:5px}aside a:hover,aside a.active{background:#254058;color:#ecffff}aside footer{font-size:10px;color:#95b9c5;padding-top:18px;border-top:1px solid #345063;margin-top:15px}.wrap{margin-left:285px}header{position:sticky;top:0;background:#ffffffee;border-bottom:1px solid #dce4ed;backdrop-filter:blur(12px);padding:15px 40px;display:flex;justify-content:space-between;align-items:center;gap:15px;z-index:2}header span{font-size:11px;letter-spacing:1.2px;color:#728b9d}.actions{display:flex;gap:10px}.actions a,.actions button{font:12px system-ui;border:1px solid #d2dee8;color:#315873;background:white;border-radius:6px;padding:8px 12px;text-decoration:none;cursor:pointer}main{max-width:1150px;padding:40px 50px 90px;margin:0 auto}h1,h2,h3,h4{color:#000;line-height:1.3;letter-spacing:-.6px}h1{font-size:38px;margin:20px 0 25px;max-width:850px}h2{font-size:25px;margin-top:62px;padding-top:15px;border-top:1px solid #d9e4ec}h3{font-size:19px;margin-top:32px}p,li{overflow-wrap:anywhere}p{margin:14px 0}a{color:#1d6888}a:focus-visible,button:focus-visible{outline:3px solid #3e9db8;outline-offset:3px}.notice{padding:20px 24px;border-left:4px solid #5597a9;background:#e9f2f6;border-radius:5px;font-size:13px;margin-bottom:32px;color:#315669}.notice strong{display:block;margin-bottom:5px}.table-scroll{overflow:auto;margin:25px 0;border:1px solid #cfdae5;border-radius:6px;background:white}table{border-collapse:collapse;width:100%;font-size:12px;line-height:1.6;min-width:580px}th,td{padding:12px 14px;border:1px solid #d8e2eb;text-align:left;vertical-align:top}th{background:#dfeaf2;color:#142d41;font-weight:600}tr:nth-child(even) td{background:#f1f6f9}pre{background:#13243a;color:#d9e8f1;padding:22px;border-radius:8px;font:12px/1.7 Consolas,monospace;overflow:auto;max-width:100%}code{font-family:Consolas,monospace;font-size:.88em;color:#315b73;background:#e5edf3;border-radius:3px;padding:2px 4px}pre code{color:inherit;background:transparent;padding:0;font-size:inherit}ul,ol{padding-left:24px}li{margin-bottom:8px}blockquote{border-left:3px solid #6f9cad;margin-left:0;padding-left:20px;color:#526e80}#menu{display:none}.end{margin-top:55px;border-top:1px solid #d3e0e9;padding-top:20px;color:#698293;font-size:12px}@media(max-width:1100px){aside{width:245px}.wrap{margin-left:245px}main{padding:32px}header{padding:14px 28px}header span{display:none}}@media(max-width:720px){aside{transform:translateX(-100%);width:280px;transition:transform .2s}.nav-open aside{transform:translateX(0);box-shadow:0 0 0 100vmax #13243a66}.wrap{margin-left:0}main{padding:24px 19px 65px}h1{font-size:30px}h2{font-size:23px}header{padding:12px 16px}#menu{display:block;border:0;background:transparent;font-size:23px;color:#284d67}pre{padding:16px;font-size:11px}.actions a,.actions button{font-size:11px;padding:7px 10px}.notice{padding:16px}}@media print{aside,header,.notice{display:none}.wrap{margin-left:0}body{background:white;color:#111;font:10pt/1.5 Arial,sans-serif}main{max-width:none;margin:0;padding:0}h1{font-size:25pt}h2{font-size:17pt;break-before:auto;break-after:avoid}h3{font-size:12pt;break-after:avoid}p,li{orphans:3;widows:3}.table-scroll{overflow:visible;border:0;border-radius:0}table{min-width:0;font-size:8pt}th,td{padding:6px;border:1px solid #aaa}thead{display:table-header-group}tr{break-inside:avoid}pre{white-space:pre-wrap;overflow:visible;background:#f4f4f4;color:#111;border:1px solid #ddd;font-size:8pt}code{background:#eee;color:#111}a{color:#111;text-decoration:none}.end{font-size:8pt}}</style></head><body><aside><div class="brand">riuya</div><div class="edition">GUÍA DE IMPLEMENTACIÓN Y REVISIÓN<br>V1.0 · 8 NOVIEMBRE 2026</div><nav aria-label="Índice del documento"><a href="#1-que-debe-recibir-quien-implementa">1 Qué debe recibir quien implementa</a><a href="#2-que-esta-definido-y-que-no-se-debe-inventar">2 Qué está definido y qué no se debe inventar</a><a href="#3-secuencia-de-zonas-para-construir-y-revisar">3 Secuencia de zonas para construir y revisar</a><a href="#4-contratos-ejecutables-antes-de-cerrar-cada-zona">4 Contratos ejecutables antes de cerrar cada zona</a><a href="#5-fixtures-numericos-de-referencia">5 Fixtures numéricos de referencia</a><a href="#6-pruebas-de-carreras-y-recuperacion">6 Pruebas de carreras y recuperación</a><a href="#7-metodo-de-revision-independiente">7 Método de revisión independiente</a><a href="#8-gravedad-y-cierre-de-hallazgos">8 Gravedad y cierre de hallazgos</a><a href="#9-entrega-para-revision-del-usuario">9 Entrega para revisión del usuario</a><a href="#10-instrucciones-reutilizables-para-cada-etapa">10 Instrucciones reutilizables para cada etapa</a><a href="#11-estado-inicial-y-siguientes-acciones">11 Estado inicial y siguientes acciones</a></nav><footer>LOCAL PRIMERO<br>11 secciones · fuente editable en Markdown</footer></aside><div class="wrap"><header><button id="menu" aria-label="Abrir índice" aria-expanded="false">☰</button><span>IMPLEMENTACIÓN DEL MVP / DOCUMENTO TÉCNICO</span><div class="actions"><a href="Riuya_Guia_de_Implementacion_y_Revision_V1_2026-11-08.md" download>Descargar Markdown</a><button id="print">Imprimir o guardar PDF</button></div></header><main><div class="notice"><strong>Entregas pequeñas con contratos verificables y revisión independiente.</strong>Paquetes por zona, fixtures, pruebas concurrentes, clasificación de hallazgos y puntos de revisión del usuario. No fija modelos para cada etapa.</div><h1 id="riuya-guia-de-implementacion-y-revision-por-funcionalidades">Riuya Guía de implementación y revisión por funcionalidades</h1><p><strong>Versión 1.0 · 8 de noviembre de 2026</strong></p>
+<p>Esta guía convierte la especificación técnica V2.2 en entregas pequeñas y verificables. Una persona o agente implementa la zona acordada; otra revisión contrasta el código, el comportamiento y las pruebas con los requisitos. El usuario decide qué modelo utiliza en cada etapa y conserva la decisión de avanzar.</p>
+<p>No inicia la implementación ni asigna modelos de forma permanente. Complementa el documento técnico; no reemplaza las reglas de producto, las fuentes editoriales ni los puntos de revisión del usuario.</p>
+<h2 id="1-que-debe-recibir-quien-implementa">1 Qué debe recibir quien implementa</h2><p>Antes de empezar una zona, leer <code>AGENTS.md</code>, la especificación técnica Markdown V2.2 y las secciones pertinentes de las fuentes. Entregar un paquete de trabajo con:</p>
+<ul>
+<li>Identificador de zona, objetivo y dependencias que ya están disponibles.</li>
+<li>Alcance incluido y exclusiones explícitas para esa entrega.</li>
+<li>Requisitos y criterios de aceptación numerados.</li>
+<li>Contratos de entrada, salida, errores y permisos afectados.</li>
+<li>Fixtures y resultados esperados, incluyendo el caso negativo relevante.</li>
+<li>Comandos para arrancar, probar y reproducir la demostración local.</li>
+<li>Decisiones ya fijadas, elecciones de ingeniería permitidas y asuntos que requieren revisión del usuario.</li>
+</ul>
+<p>El paquete puede escribirse en <code>docs/entregas/ZXX.md</code> durante la implementación. No crear una especificación distinta por cada modelo ni basar reglas en recuerdos de otro chat.</p>
+<h2 id="2-que-esta-definido-y-que-no-se-debe-inventar">2 Qué está definido y qué no se debe inventar</h2><div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Categoría</th>
+<th>Tratamiento</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Regla funcional aprobada</td>
+<td>Implementarla y probarla; no sustituirla por lo que muestra una maqueta antigua</td>
+</tr>
+<tr>
+<td>Definición técnica V2.2</td>
+<td>Usarla como contrato; proponer una ADR si se necesita cambiar arquitectura o semántica</td>
+</tr>
+<tr>
+<td>Detalle interno sin impacto externo</td>
+<td>Resolver con criterio y documentar lo necesario, sin pedir permiso por cada nombre de variable o componente</td>
+</tr>
+<tr>
+<td>Contrato incompleto que cambia comportamiento</td>
+<td>Registrar la ambigüedad y resolverla antes de cerrar esa función; no inventar silenciosamente el resultado</td>
+</tr>
+<tr>
+<td>Métrica propuesta o material pendiente de validación editorial</td>
+<td>Implementar detrás del control previsto; no publicarlo como validado</td>
+</tr>
+<tr>
+<td>Credencial o integración no disponible</td>
+<td>Mantener el simulador identificado y registrar que la integración real no está verificada</td>
+</tr>
+</tbody></table></div>
+<p>La revisión distingue si el fallo está en el código o en un contrato contradictorio. Una prueba que copia una implementación equivocada no convierte esa conducta en requisito correcto.</p>
+<h2 id="3-secuencia-de-zonas-para-construir-y-revisar">3 Secuencia de zonas para construir y revisar</h2><p>Las fases de la especificación se dividen en las siguientes zonas. No se implementan todas de una vez. El usuario puede ajustar el orden según dependencias; la zona siguiente no se adelanta mientras espera revisión.</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Zona</th>
+<th>Resultado revisable</th>
+<th>Criterios mínimos de aceptación</th>
+<th>Dependencia</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Z00 Base local</td>
+<td>Web mínima, servicios locales y diagnóstico reproducible</td>
+<td>Arranque documentado; versiones fijadas; base accesible; ningún secreto versionado; sin reset automático</td>
+<td>Ninguna</td>
+</tr>
+<tr>
+<td>Z01 Datos y permisos</td>
+<td>Migraciones y seed con ocho voces/seis categorías/roles</td>
+<td>Reconstrucción de base desechable; restricciones; pruebas de acceso permitidas y denegadas; acceso directo a tablas privadas cerrado</td>
+<td>Z00</td>
+</tr>
+<tr>
+<td>Z02 Publicación editorial manual</td>
+<td>Crear, revisar, publicar y retirar una noticia completa</td>
+<td>No publica con 7/9 opiniones; exige revisión humana; control de versión; retirada oculta contenido en rutas de lector</td>
+<td>Z01</td>
+</tr>
+<tr>
+<td>Z03 Lectura y fichas</td>
+<td>Feed 10+10, filtros, noticia, ampliada y panel de personaje</td>
+<td>Orden/cursor; ocho opiniones; scroll/foco conservados; sin búsqueda ni fotos noticiosas; estados vacío/error</td>
+<td>Z02</td>
+</tr>
+<tr>
+<td>Z04 Cuenta y borradores</td>
+<td>Login correo, recuperación, sesión y retorno con selección</td>
+<td>Identidad verificada; borrador restaurado sin confirmar; logout limpia datos; ninguna fuga entre cuentas</td>
+<td>Z03</td>
+</tr>
+<tr>
+<td>Z05 Participación</td>
+<td>Me gusta, Ninguna, omitir y confirmación atómica</td>
+<td>Exclusividad; irreversible; idempotencia; concurrencia; errores recuperables; cuenta requerida</td>
+<td>Z04</td>
+</tr>
+<tr>
+<td>Z06 Resultados básicos</td>
+<td>Acceso explícito, preliminares/completos y bloqueo de omitidas</td>
+<td>Casos N=0/1/9/10; ninguna popularidad oculta; carrera acceso/confirmar serializada; sin precarga con efectos</td>
+<td>Z05</td>
+</tr>
+<tr>
+<td>Z07 Actividad y tendencias</td>
+<td>Historial propio y últimas 20 frente al total</td>
+<td>Denominadores; Ninguna incluida; omisiones fuera de tendencias; retiradas ocultas; orden de actividad estable</td>
+<td>Z06</td>
+</tr>
+<tr>
+<td>Z08 Métricas y tarjeta</td>
+<td>Coincidencia/aspectos controlados y arte compartible</td>
+<td>Fórmulas versionadas; flags y validación; privacidad del arte; formato sin métricas inventadas; fallback de descarga</td>
+<td>Z06–Z07</td>
+</tr>
+<tr>
+<td>Z09 Worker y editorial asistida</td>
+<td>Trabajos persistentes, fuentes, agrupación e IA revisable</td>
+<td>Reanudación/idempotencia; protección de fetch; citas válidas; ninguna publicación automática; fixtures separados de integración</td>
+<td>Z02 y base de jobs</td>
+</tr>
+<tr>
+<td>Z10 Preferencias y notificaciones</td>
+<td>Agenda por canal y transporte local verificable</td>
+<td>Zona IANA; deduplicación; máximo diario; opt-in; reloj simulado; no afirmar push real con un capturador local</td>
+<td>Z04 y worker</td>
+</tr>
+<tr>
+<td>Z11 Baja y recuperación</td>
+<td>Desactivar, recuperar y purgar con trabajos reanudables</td>
+<td>JWT previo sin acceso; siete días; carrera recuperación/purga; recalcular N; no recuperar datos purgados al restaurar</td>
+<td>Z04–Z10 según datos creados</td>
+</tr>
+<tr>
+<td>Z12 Cierre local y preparación de servidor</td>
+<td>Build local productivo y expediente de salida</td>
+<td>Recorridos críticos, accesibilidad, privacidad de caché, restauración y configuración de despliegue ensayadas</td>
+<td>Z00–Z11</td>
+</tr>
+</tbody></table></div>
+<p>Estas zonas precisan el orden de revisión, no autorizan recortar funciones del MVP. Google/Apple, transporte push y otros servicios externos tienen una comprobación de integración específica antes de lanzamiento. Un formulario de login local no acredita que los tres proveedores ya funcionen.</p>
+<h2 id="4-contratos-ejecutables-antes-de-cerrar-cada-zona">4 Contratos ejecutables antes de cerrar cada zona</h2><p>La especificación explica el comportamiento. Al implementar, se convierte en artefactos versionados que permiten revisión independiente:</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Artefacto</th>
+<th>Contenido exigido</th>
+<th>Cuándo</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>docs/versions.md</code></td>
+<td>Resoluciones exactas, compatibilidad, fecha y commit; sin afirmar versiones instaladas si no se comprobaron</td>
+<td>Z00</td>
+</tr>
+<tr>
+<td>Migraciones SQL</td>
+<td>Tipos, nulabilidad, defaults, FK y acciones de borrado, checks, índices, grants/RLS y funciones</td>
+<td>Z01 y cada cambio de esquema</td>
+</tr>
+<tr>
+<td><code>docs/data-dictionary.md</code></td>
+<td>Campo, tipo, sentido, fuente de autoridad, sensibilidad, retención y restricciones; coincide con SQL</td>
+<td>Desde Z01</td>
+</tr>
+<tr>
+<td>Schemas de validación</td>
+<td>Entradas y DTO de salida de cada caso de uso; rechazan combinaciones inválidas</td>
+<td>Cada endpoint nuevo</td>
+</tr>
+<tr>
+<td><code>docs/api/openapi.yaml</code></td>
+<td>Rutas, autenticación, schemas, errores y ejemplos compatibles con los validadores</td>
+<td>Cada zona con API</td>
+</tr>
+<tr>
+<td>Fixtures de dominio</td>
+<td>Datos válidos/negativos y resultados esperados, sin PII real</td>
+<td>Cada zona de reglas</td>
+</tr>
+<tr>
+<td>Pruebas SQL/integración</td>
+<td>Comportamiento real de transacciones y permisos, no solo mocks</td>
+<td>Datos, roles y participación</td>
+</tr>
+<tr>
+<td><code>docs/entregas/ZXX.md</code></td>
+<td>Alcance, implementación, pruebas, reproducción y limitaciones</td>
+<td>Cada entrega</td>
+</tr>
+<tr>
+<td><code>docs/revisiones/ZXX.md</code></td>
+<td>Hallazgos, evidencia, correcciones y estado técnico</td>
+<td>Cada revisión</td>
+</tr>
+<tr>
+<td><code>docs/avance.md</code></td>
+<td>Estado de zonas y decisión del usuario, sin aprobaciones ficticias</td>
+<td>Desde Z00</td>
+</tr>
+</tbody></table></div>
+<p>Estos archivos son salidas de implementación; no se presentan como existentes hoy. No escribir un OpenAPI que prometa campos distintos de los que devuelve el código. El revisor compara ambos y ejecuta al menos el recorrido crítico y sus rechazos.</p>
+<h2 id="5-fixtures-numericos-de-referencia">5 Fixtures numéricos de referencia</h2><h3 id="5-1-umbral-y-multiseleccion">5.1 Umbral y multiselección</h3><p>Usar una noticia con diez participantes confirmados distintos:</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Participante ficticio</th>
+<th>Selección</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>U01</td>
+<td>Rami y Beatriz</td>
+</tr>
+<tr>
+<td>U02</td>
+<td>Rami y Beatriz</td>
+</tr>
+<tr>
+<td>U03</td>
+<td>Rami y Beatriz</td>
+</tr>
+<tr>
+<td>U04</td>
+<td>Rami y Beatriz</td>
+</tr>
+<tr>
+<td>U05</td>
+<td>Rami y Beatriz</td>
+</tr>
+<tr>
+<td>U06</td>
+<td>Rami</td>
+</tr>
+<tr>
+<td>U07</td>
+<td>Rami</td>
+</tr>
+<tr>
+<td>U08</td>
+<td>Leo</td>
+</tr>
+<tr>
+<td>U09</td>
+<td>Ninguna</td>
+</tr>
+<tr>
+<td>U10</td>
+<td>Ninguna</td>
+</tr>
+</tbody></table></div>
+<p>N=10. Rami 70 %, Beatriz 50 %, Leo 10 %, Ninguna 20 % y el resto 0 %. La suma es 150 % y no debe normalizarse a 100. Agregar una omisión no cambia N. Con solo U01–U09, N=9 y no se entregan porcentajes ni ranking al lector, tampoco ocultos en payload o HTML.</p>
+<h3 id="5-2-coincidencia-propuesta">5.2 Coincidencia propuesta</h3><p>Según T07, para U01 hay cuatro coincidencias 1, dos coincidencias 0,5 y tres coincidencias 0: <code>100 × 5/9 = 55,6 %</code> tras redondear una cifra. Para U09, solo U10 coincide: <code>100 × 1/9 = 11,1 %</code>. Nunca comparar al usuario consigo mismo. La prueba acredita el cálculo del contrato; no sustituye la validación de su interpretación y de la UX antes de habilitar la métrica.</p>
+<h3 id="5-3-aspectos-y-cobertura">5.3 Aspectos y cobertura</h3><p>Un usuario elige dos opiniones. Una contiene Indignación 70 % y Esperanza 30 %; la otra no tiene emoción clasificada. Contribuciones 0,35 y 0,15; masa clasificada M=0,5; distribución personal 70/30 y cobertura 50 %. No adjudicar emoción a la segunda opinión ni tratar el 50 % ausente como neutralidad medida.</p>
+<p>N=10 no basta para exponer distribución comunitaria de aspectos si solo ocho usuarios aportan evidencia en la dimensión; se mantiene sin datos suficientes para ese agregado. Ninguna sí cuenta en el denominador de apoyo por voz, aunque no aporte evidencia emocional.</p>
+<h2 id="6-pruebas-de-carreras-y-recuperacion">6 Pruebas de carreras y recuperación</h2><p>Las pruebas concurrentes usan la base local real, dos conexiones/sesiones y coordinación para provocar el solapamiento. Dos llamadas secuenciales no prueban una carrera.</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Escenario</th>
+<th>Resultados admitidos</th>
+<th>Resultado prohibido</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Dos confirmaciones simultáneas</td>
+<td>Una confirmación persistida; la otra recupera/conflicta sin alterar elecciones</td>
+<td>Dos respuestas o combinación de ambos payloads</td>
+</tr>
+<tr>
+<td>Confirmar frente a acceso a completos en omitida</td>
+<td>Si gana confirmar, queda confirmada; si gana acceso, queda omitida bloqueada</td>
+<td>Ambos flujos permiten después cambiar la respuesta</td>
+</tr>
+<tr>
+<td>Mismo operationId con payload idéntico</td>
+<td>Mismo recibo lógico y cero escrituras duplicadas</td>
+<td>Otro voto o timestamp de confirmación nuevo</td>
+</tr>
+<tr>
+<td>Mismo operationId con payload distinto</td>
+<td>Conflicto sin mutación</td>
+<td>Sobrescritura del voto anterior</td>
+</tr>
+<tr>
+<td>Timeout después del commit</td>
+<td>Consulta de estado devuelve la confirmación guardada</td>
+<td>Declarar fallo definitivo y aceptar otra elección incompatible</td>
+</tr>
+<tr>
+<td>Retirada frente a confirmar</td>
+<td>La operación que obtiene primero el bloqueo ordena el resultado; después de retirar no se admiten nuevos accesos</td>
+<td>Contenido visible o confirmación nueva que ignora la retirada ya confirmada</td>
+</tr>
+<tr>
+<td>Dos workers y un trabajo</td>
+<td>Lease coherente e idempotencia del efecto</td>
+<td>Doble publicación o doble efecto de negocio</td>
+</tr>
+<tr>
+<td>Recuperación frente a purga</td>
+<td>Una transición coherente según estado y plazo, sin purga de cuenta recuperada</td>
+<td>Cuenta activa con datos borrados por una tarea desactualizada</td>
+</tr>
+</tbody></table></div>
+<p>Después de cada prueba comprobar filas persistidas, estado y respuesta HTTP, no solo el mensaje visual. Forzar también reconexión, reinicio del worker y reloj simulado cuando aplique. No simular el paso de siete días cambiando manualmente datos de una cuenta real.</p>
+<h2 id="7-metodo-de-revision-independiente">7 Método de revisión independiente</h2><ol>
+<li>Leer el paquete de zona y los requisitos antes del resumen de quien implementó.</li>
+<li>Identificar el diff y los archivos que realmente cambian el comportamiento, incluidas migraciones, permisos y configuración.</li>
+<li>Seguir al menos un recorrido completo: interfaz → API → autorización → RPC/SQL → persistencia → respuesta.</li>
+<li>Ejecutar la demostración local y los casos negativos pertinentes; registrar comandos y resultados. Una dependencia ausente es una comprobación no realizada, no un aprobado.</li>
+<li>Intentar el acceso alternativo relevante: API directa, rol incorrecto, usuario ajeno, artículo retirado, payload manipulado o carrera entre sesiones.</li>
+<li>Revisar que las pruebas comprueben requisitos observables y fallen ante el defecto que pretenden evitar.</li>
+<li>Comparar código con schemas/OpenAPI, diccionario de datos y reglas funcionales.</li>
+<li>Informar hallazgos accionables, con archivo/línea cuando esté disponible, reproducción e impacto. Diferenciar bug demostrado, riesgo pendiente de comprobar y preferencia de estilo.</li>
+<li>Si hubo correcciones, revisar el nuevo diff y repetir las pruebas afectadas. Referirse al estado exacto del código revisado.</li>
+</ol>
+<p>El modelo que revise no debe dar por buena una afirmación porque la escribió otro modelo ni reescribir toda la zona por preferencia personal. La revisión técnica puede recomendar cambios; el usuario decide si acepta la entrega y avanza.</p>
+<h2 id="8-gravedad-y-cierre-de-hallazgos">8 Gravedad y cierre de hallazgos</h2><div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Nivel</th>
+<th>Ejemplo</th>
+<th>Tratamiento</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>P0 Crítico</td>
+<td>Exposición de secretos, pérdida amplia de datos o bypass grave de acceso</td>
+<td>Detener entrega afectada, corregir y volver a revisar</td>
+</tr>
+<tr>
+<td>P1 Grave</td>
+<td>Doble voto, resultados antes del umbral, datos ajenos accesibles o recorrido principal roto</td>
+<td>No dar por cerrada la zona; corregir y reproducir prueba de regresión</td>
+</tr>
+<tr>
+<td>P2 Relevante</td>
+<td>Caso secundario incorrecto, accesibilidad o recuperación defectuosa sin fallo crítico</td>
+<td>Corregir o registrar diferimiento aceptado por el usuario; no ignorarlo</td>
+</tr>
+<tr>
+<td>P3 Menor</td>
+<td>Ajuste visual/textual o mantenibilidad sin impacto funcional material</td>
+<td>Registrar y priorizar con el usuario</td>
+</tr>
+</tbody></table></div>
+<p>Un hallazgo incluye severidad, condición de activación, comportamiento observado/esperado y evidencia. No marcar «corregido» solo porque se añadió una línea: demostrar el resultado. No etiquetar una opinión de estilo como error grave.</p>
+<p>La revisión técnica usa veredictos «requiere correcciones», «sin bloqueos técnicos detectados» o «revisión incompleta por bloqueo». «Sin bloqueos detectados» no garantiza ausencia de errores y no equivale a aprobación del usuario.</p>
+<h2 id="9-entrega-para-revision-del-usuario">9 Entrega para revisión del usuario</h2><p>Plantilla breve que debe acompañar cada zona:</p>
+<pre><code class="language-text">Zona y estado:
+Objetivo completado:
+Versión del código revisable (commit o diff identificado):
+Cómo arrancar y acceder localmente:
+Datos de prueba ficticios:
+Recorrido de prueba en 3 a 6 pasos:
+Pruebas ejecutadas y resultado:
+Pruebas no ejecutadas y motivo:
+Hallazgos P0/P1 pendientes:
+Observaciones menores y diferimientos propuestos:
+Siguiente zona propuesta:
+Estado: esperando revisión del usuario; no se inicia la siguiente zona.
+</code></pre>
+<p>No pedir al usuario contraseñas de producción para comprobar una zona local. Si hay cuentas de prueba, crearlas solo en el entorno de desarrollo y documentar su uso de forma segura. No registrar secretos en el expediente de revisión.</p>
+<h2 id="10-instrucciones-reutilizables-para-cada-etapa">10 Instrucciones reutilizables para cada etapa</h2><h3 id="10-1-para-implementar-una-zona">10.1 Para implementar una zona</h3><blockquote>
+<p>Lee AGENTS.md, la especificación técnica V2.2 y el paquete de la zona indicada. Implementa únicamente esa zona y las dependencias necesarias dentro de su alcance. Conserva las reglas de producto y los contratos. Si detectas una contradicción que cambie comportamiento, identifícala antes de inventar una solución. Ejecuta las pruebas pertinentes, prepara una demostración local y entrega evidencia, limitaciones y diff. No avances a la siguiente zona: espera la revisión del usuario.</p>
+</blockquote>
+<h3 id="10-2-para-revisar-una-zona">10.2 Para revisar una zona</h3><blockquote>
+<p>Revisa de forma independiente la zona indicada contra AGENTS.md, la especificación técnica V2.2 y sus criterios de aceptación. Inspecciona el código y las migraciones reales; ejecuta los recorridos y pruebas pertinentes. Prioriza permisos, integridad de datos, concurrencia y reglas de producto. Entrega hallazgos reproducibles con gravedad y ubicación, distingue lo verificado de lo no comprobado y no atribuyas aprobación al usuario. Si no hay bloqueos demostrados, informa «sin bloqueos técnicos detectados» e indica los límites de la revisión.</p>
+</blockquote>
+<h3 id="10-3-para-corregir-hallazgos">10.3 Para corregir hallazgos</h3><blockquote>
+<p>Corrige los hallazgos acordados de la zona actual, sin ampliar el alcance. Añade o ajusta pruebas de regresión que demuestren el fallo y su corrección. Presenta el diff y vuelve a entregar la zona para revisión. No inicies la siguiente funcionalidad mientras no exista conformidad del usuario.</p>
+</blockquote>
+<p>Estas instrucciones sirven para el modelo que el usuario elija en cada momento. La documentación compartida y la evidencia son el mecanismo de continuidad entre etapas.</p>
+<h2 id="11-estado-inicial-y-siguientes-acciones">11 Estado inicial y siguientes acciones</h2><p>Esta entrega solo prepara documentación. No hay zonas implementadas o aprobadas por este documento. Cuando el usuario decida comenzar, crear el paquete Z00, comprobar el entorno y trabajar únicamente en la base local. Al terminar se revisa Z00 antes de abrir Z01.</p>
+<p>La calidad se controla con contratos, pruebas y revisión independiente; el nombre del modelo no sustituye ninguna de esas condiciones.</p>
+<div class="end">Fuente: Riuya_Guia_de_Implementacion_y_Revision_V1_2026-11-08.md · Documento autónomo: no necesita servidor ni recursos externos para su lectura. Los enlaces de referencia requieren internet.</div></main></div><script>const menu=document.getElementById('menu');menu.onclick=()=>{const on=document.body.classList.toggle('nav-open');menu.setAttribute('aria-expanded',String(on))};document.querySelectorAll('aside nav a').forEach(a=>a.addEventListener('click',()=>{document.body.classList.remove('nav-open');menu.setAttribute('aria-expanded','false')}));document.getElementById('print').onclick=()=>window.print();const observer=new IntersectionObserver(es=>{es.forEach(e=>{if(e.isIntersecting){document.querySelectorAll('aside nav a').forEach(a=>a.classList.toggle('active',a.hash==='#'+e.target.id))}})},{rootMargin:'-10% 0px -75% 0px'});document.querySelectorAll('main h2').forEach(h=>observer.observe(h));</script></body></html>

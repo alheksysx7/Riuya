@@ -1,0 +1,1 @@
+SELECT * FROM api.list_categories();
