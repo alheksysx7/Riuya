@@ -1,0 +1,73 @@
+insert into auth.users(id,email) values ('a05b0000-0000-4000-8000-000000000001','z05-one@example.invalid'),('a05b0000-0000-4000-8000-000000000002','z05-two@example.invalid'),('a05b0000-0000-4000-8000-000000000003','z05-three@example.invalid'),('a05b0000-0000-4000-8000-000000000004','z05-four@example.invalid'),('a05b0000-0000-4000-8000-000000000005','z05-five@example.invalid');
+insert into private.profiles(id) select id from auth.users where id in ('a05b0000-0000-4000-8000-000000000001','a05b0000-0000-4000-8000-000000000002','a05b0000-0000-4000-8000-000000000003','a05b0000-0000-4000-8000-000000000004','a05b0000-0000-4000-8000-000000000005');
+insert into private.articles(id,category_id) select 'a05b0000-0000-4000-8000-000000000010',id from private.categories limit 1;
+insert into private.article_revisions(id,article_id,revision_number,title,micro_summary,full_paragraphs) values('a05b0000-0000-4000-8000-000000000011','a05b0000-0000-4000-8000-000000000010',1,'Fixture Z05','Resumen','[]');
+insert into private.opinions(revision_id,character_id,body) select 'a05b0000-0000-4000-8000-000000000011',id,'Prueba' from private.characters;
+update private.articles set status='published',published_at=now(),current_revision_id='a05b0000-0000-4000-8000-000000000011' where id='a05b0000-0000-4000-8000-000000000010';
+insert into private.article_user_state(user_id,article_id,omitted_at,full_results_seen_at) values('a05b0000-0000-4000-8000-000000000003','a05b0000-0000-4000-8000-000000000010',now(),now());
+create temp table z05_values(ids uuid[],receipt uuid,first_time timestamptz);insert into z05_values(ids) select array_agg(id order by id) from private.opinions where revision_id='a05b0000-0000-4000-8000-000000000011';grant select,update on z05_values to authenticated;
+set local role authenticated;
+select set_config('request.jwt.claim.sub','a05b0000-0000-4000-8000-000000000001',true);
+do $$ declare ids uuid[]; r jsonb; again jsonb; begin select z.ids into ids from z05_values z;
+ if api.participation_state('a05b0000-0000-4000-8000-000000000010')->>'status'<>'pending' then raise exception 'Estado inicial incorrecto'; end if;
+ if (api.confirm_participation('a05b0000-0000-4000-8000-000000000010','a05b0000-0000-4000-8000-000000000011',gen_random_uuid(),'none',ids[1:1]))->>'message' is distinct from 'INVALID_SELECTION' then raise exception 'Validación no rechazada';end if;
+ if (api.confirm_participation('a05b0000-0000-4000-8000-000000000010','a05b0000-0000-4000-8000-000000000011',gen_random_uuid(),'voices',array[ids[1],ids[1]]))->>'message' is distinct from 'INVALID_SELECTION' then raise exception 'Validación no rechazada';end if;
+ if (api.confirm_participation('a05b0000-0000-4000-8000-000000000010',gen_random_uuid(),gen_random_uuid(),'voices',ids[1:1]))->>'message' is distinct from 'CONTENT_CHANGED' then raise exception 'Conflicto incorrecto';end if;
+ r:=api.confirm_participation('a05b0000-0000-4000-8000-000000000010','a05b0000-0000-4000-8000-000000000011','a05b0000-0000-4000-8000-000000000020','voices',ids[1:2]);update z05_values set receipt=(r->>'id')::uuid;
+ again:=api.confirm_participation('a05b0000-0000-4000-8000-000000000010','a05b0000-0000-4000-8000-000000000011','a05b0000-0000-4000-8000-000000000020','voices',array[ids[2],ids[1]]);if again->>'id'<>r->>'id' or again->>'confirmedAt'<>r->>'confirmedAt' then raise exception 'Reintento no idempotente';end if;
+ if (api.confirm_participation('a05b0000-0000-4000-8000-000000000010','a05b0000-0000-4000-8000-000000000011','a05b0000-0000-4000-8000-000000000020','none','{}'))->>'message' is distinct from 'OPERATION_CONFLICT' then raise exception 'Conflicto incorrecto';end if;
+ if (api.confirm_participation('a05b0000-0000-4000-8000-000000000010','a05b0000-0000-4000-8000-000000000011',gen_random_uuid(),'none','{}'))->>'message' is distinct from 'ALREADY_CONFIRMED' then raise exception 'Conflicto incorrecto';end if;
+end $$;
+select set_config('request.jwt.claim.sub','a05b0000-0000-4000-8000-000000000002',true);
+do $$ declare a jsonb;b jsonb; begin
+ if api.participation_state('a05b0000-0000-4000-8000-000000000010')->>'status'<>'pending' then raise exception 'Datos cruzados';end if;
+ a:=api.omit_article('a05b0000-0000-4000-8000-000000000010');b:=api.omit_article('a05b0000-0000-4000-8000-000000000010');if a->>'omittedAt'<>b->>'omittedAt' then raise exception 'Omisión cambió fecha';end if;
+ a:=api.confirm_participation('a05b0000-0000-4000-8000-000000000010','a05b0000-0000-4000-8000-000000000011',gen_random_uuid(),'none','{}');if a->>'choiceKind'<>'none' then raise exception 'Ninguna incorrecta';end if;
+end $$;
+select set_config('request.jwt.claim.sub','a05b0000-0000-4000-8000-000000000003',true);
+do $$ begin if (api.confirm_participation('a05b0000-0000-4000-8000-000000000010','a05b0000-0000-4000-8000-000000000011',gen_random_uuid(),'none','{}'))->>'message' is distinct from 'PARTICIPATION_LOCKED' then raise exception 'Conflicto incorrecto';end if;end $$;
+do $$ declare r jsonb;i integer;begin
+ for i in 1..30 loop r:=api.take_participation_limit('omit');if not (r->>'allowed')::boolean then raise exception 'Límite de omisión prematuro';end if;perform api.omit_article('a05b0000-0000-4000-8000-000000000010');end loop;
+ r:=api.take_participation_limit('omit');if (r->>'allowed')::boolean then raise exception 'Límite HTTP de omisión no aplicado';end if;
+ if (api.omit_article('a05b0000-0000-4000-8000-000000000010'))->>'message' is distinct from 'RATE_LIMITED' then raise exception 'Límite no aplicado';end if;
+end $$;
+select set_config('request.jwt.claim.sub','a05b0000-0000-4000-8000-000000000005',true);
+do $$ declare r jsonb; i integer; ids uuid[];begin select z.ids into ids from z05_values z;
+ for i in 1..30 loop r:=api.confirm_participation('a05b0000-0000-4000-8000-000000000010','a05b0000-0000-4000-8000-000000000011',gen_random_uuid(),'none',ids[1:1]);if r->>'message' is distinct from 'INVALID_SELECTION' then raise exception 'Selección inválida no rechazada';end if;end loop;
+ r:=api.confirm_participation('a05b0000-0000-4000-8000-000000000010','a05b0000-0000-4000-8000-000000000011',gen_random_uuid(),'none',ids[1:1]);if r->>'message' is distinct from 'RATE_LIMITED' then raise exception 'Intentos inválidos directos no limitados';end if;
+end $$;
+select set_config('request.jwt.claim.sub','a05b0000-0000-4000-8000-000000000004',true);
+do $$ declare r jsonb; i integer; begin
+ for i in 1..30 loop r:=api.take_participation_limit('confirm'); if not (r->>'allowed')::boolean then raise exception 'Límite prematuro'; end if; end loop;
+ r:=api.take_participation_limit('confirm');if (r->>'allowed')::boolean or (r->>'retryAfter')::integer not between 1 and 60 then raise exception 'Límite HTTP no aplicado';end if;
+ for i in 1..30 loop perform api.confirm_participation('a05b0000-0000-4000-8000-000000000010','a05b0000-0000-4000-8000-000000000011','a05b0000-0000-4000-8000-000000000030','none','{}');end loop;
+ if (api.confirm_participation('a05b0000-0000-4000-8000-000000000010','a05b0000-0000-4000-8000-000000000011','a05b0000-0000-4000-8000-000000000030','none','{}'))->>'message' is distinct from 'RATE_LIMITED' then raise exception 'Límite no aplicado';end if;
+end $$;
+reset role;
+set constraints all immediate;
+select set_config('request.jwt.claim.sub','',true);
+do $$ begin
+ if (select count(*) from private.participations where article_id='a05b0000-0000-4000-8000-000000000010')<>3 then raise exception 'Participaciones incorrectas';end if;
+ if (select count(*) from private.participation_choices where participation_id=(select receipt from z05_values))<>2 then raise exception 'Elecciones incorrectas';end if;
+ if has_schema_privilege('authenticated','private','USAGE') or has_function_privilege('anon','api.confirm_participation(uuid,uuid,uuid,text,uuid[])','EXECUTE') then raise exception 'Acceso privado expuesto';end if;
+ begin insert into private.participations(user_id,article_id,revision_id,choice_kind,operation_id,payload_hash) values('a05b0000-0000-4000-8000-000000000003','a05b0000-0000-4000-8000-000000000010','a05b0000-0000-4000-8000-000000000011','voices',gen_random_uuid(),repeat('a',64));raise exception 'Trigger no rechazó voices sin elecciones';exception when check_violation then null;end;
+end $$;
+
+insert into private.article_revisions(id,article_id,revision_number,title,micro_summary,full_paragraphs) values('a05b0000-0000-4000-8000-000000000012','a05b0000-0000-4000-8000-000000000010',2,'Corrección ficticia','Resumen','[]');
+update private.articles set current_revision_id='a05b0000-0000-4000-8000-000000000012' where id='a05b0000-0000-4000-8000-000000000010';
+set local role authenticated;
+select set_config('request.jwt.claim.sub','a05b0000-0000-4000-8000-000000000001',true);
+do $$ declare ids uuid[]; r jsonb; begin select z.ids into ids from z05_values z; r:=api.confirm_participation('a05b0000-0000-4000-8000-000000000010','a05b0000-0000-4000-8000-000000000011','a05b0000-0000-4000-8000-000000000020','voices',ids[1:2]);if (r->>'id')::uuid<>(select receipt from z05_values) then raise exception 'Reintento cambió tras corrección';end if;if (api.confirm_participation('a05b0000-0000-4000-8000-000000000010','a05b0000-0000-4000-8000-000000000011',gen_random_uuid(),'none','{}'))->>'message' is distinct from 'CONTENT_CHANGED' then raise exception 'Conflicto incorrecto';end if;end $$;
+reset role;
+update private.profiles set account_status='deletion_pending' where id='a05b0000-0000-4000-8000-000000000003';
+set local role authenticated;
+select set_config('request.jwt.claim.sub','a05b0000-0000-4000-8000-000000000003',true);
+do $$ begin begin perform api.omit_article('a05b0000-0000-4000-8000-000000000010');raise exception 'Cuenta inactiva omitió';exception when insufficient_privilege then null;end;end $$;
+reset role;
+update private.profiles set account_status='active' where id='a05b0000-0000-4000-8000-000000000003';
+update private.articles set status='withdrawn',withdrawn_at=now(),withdrawal_reason='Prueba' where id='a05b0000-0000-4000-8000-000000000010';
+set local role authenticated;
+select set_config('request.jwt.claim.sub','a05b0000-0000-4000-8000-000000000003',true);
+do $$ begin begin perform api.participation_state('a05b0000-0000-4000-8000-000000000010');raise exception 'Retirada visible';exception when SQLSTATE 'PT404' then null;end;end $$;
+reset role;
+
