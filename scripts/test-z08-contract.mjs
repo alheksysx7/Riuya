@@ -1,0 +1,10 @@
+import assert from 'node:assert/strict';import {resultsSchema} from '../src/lib/results.ts';
+const item={key:'alpha',percentage:70}, dims=['emotion','approach','stance'].map(dimension=>({dimension,personal:null,community:null}));dims[0].personal={coverage:.5,items:[item]};dims[0].community={items:[item]};
+const support=['rami','beatriz','leo','dmitri','naoki','salma','tove','kavya','none'].map(key=>({key,name:key,percentage:0}));
+const common={articleId:'00000000-0000-4000-8000-000000000001',nextArticleId:null,formulaVersion:2,generatedAt:'2026-11-09T00:00:00Z',participationLocked:false};
+const value={...common,mode:'complete',community:{participants:10,support},coincidence:{state:'available',formulaVersion:'T07-v1',percentage:50},aspects:{state:'available',formulaVersion:'T07-v1',dimensions:dims}};
+assert(resultsSchema.safeParse(value).success);
+assert(!resultsSchema.safeParse({...value,aspects:{...value.aspects,dimensions:[dims[0],dims[0],dims[2]]}}).success);
+assert(!resultsSchema.safeParse({...value,mode:'preliminary',community:null}).success);
+assert(!resultsSchema.safeParse({...value,aspects:{...value.aspects,dimensions:[{...dims[0],personal:{coverage:1.1,items:[item]}},dims[1],dims[2]]}}).success);
+console.log('Z08 contrato: métricas validadas, umbral y duplicados: OK');

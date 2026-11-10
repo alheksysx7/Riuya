@@ -11,12 +11,16 @@
     "doctor": "node scripts/doctor.mjs",
     "db:migrate:local": "supabase migration up --local",
     "test:db": "node scripts/test-db.mjs",
-    "pruebas": "node scripts/start-local.mjs"
+    "pruebas": "node scripts/start-local.mjs",
+    "worker:setup": "node scripts/setup-worker-local.mjs",
+    "worker:local": "node scripts/run-worker.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "0.12.7",
     "@supabase/supabase-js": "2.119.0",
+    "fast-xml-parser": "5.12.0",
     "next": "16.4.5",
+    "pg": "^8.23.1",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "zod": "4.6.7"

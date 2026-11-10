@@ -18,3 +18,20 @@ Deja PowerShell abierto durante las pruebas. Pulsa Ctrl+C para detener la aplica
 - Supabase Studio: http://127.0.0.1:54323/
 
 El archivo `.env.local` contiene la configuración del entorno local y no se debe compartir. Las cuentas y datos de simulación solo son para pruebas locales.
+
+
+## Worker editorial local
+
+Con Docker y Supabase iniciados, abre otra terminal en esta carpeta:
+
+    npm run worker:local
+
+Si falta la credencial local del worker, ejecuta primero una vez:
+
+    npm run worker:setup
+
+El worker usa un rol limitado y selecciona Node 24.22.1 con NVM o RIUYA_NODE. Mantén abierta esa terminal; Ctrl+C lo detiene. En /admin se pueden crear propuestas ficticias y consultar fuentes verificadas. No hay publicación automática.
+
+Las fuentes admitidas son RSS, Atom y JSON Feed; solo se aceptan direcciones IPv4 públicas y enlaces al mismo dominio del feed. Por defecto se consulta una fuente como máximo cada 30 minutos; no se guardan artículos completos. No incluyas credenciales en URLs.
+
+Ollama es opcional para la demostración ficticia. Para generación real debe estar ejecutándose en 127.0.0.1:11434 y disponer del modelo local configurado; el valor predeterminado es qwen3:8b. RIUYA_OLLAMA_MODEL permite seleccionar otro modelo instalado. La generación recibe solo título y metadatos de la fuente; una persona debe verificar y completar los hechos. El umbral de agrupación puede configurarse con RIUYA_CLUSTER_THRESHOLD (0 a 1; predeterminado 0.5) y RIUYA_CLUSTER_DAYS (hasta 30; predeterminado 3).

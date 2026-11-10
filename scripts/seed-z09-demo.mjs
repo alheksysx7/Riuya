@@ -1,0 +1,11 @@
+import {execFileSync} from 'node:child_process';
+const source='9c41c12c-4c10-4abc-8a6d-460c3b6a2001',a='9c41c12c-4c10-4abc-8a6d-460c3b6a2201',b='9c41c12c-4c10-4abc-8a6d-460c3b6a2202',group='9c41c12c-4c10-4abc-8a6d-460c3b6a2301';
+const sql=`begin;
+insert into private.sources(id,name,domain,source_type,base_url,verified,is_active,usage_policy,is_simulation) values('${source}','SIMULACIÓN · Fuente ficticia','demo-z09.example.invalid','rss','https://demo-z09.example.invalid/feed',false,false,'Datos ficticios locales sin consulta externa.',true) on conflict(id) do nothing;
+do $$ begin if not exists(select 1 from private.sources where id='${source}' and name='SIMULACIÓN · Fuente ficticia' and is_simulation and not verified and not is_active) then raise exception 'FIXTURE_CONFLICT';end if;end $$;
+insert into private.source_items(id,source_id,canonical_url,title,external_date) values('${a}','${source}','https://demo-z09.example.invalid/parque-a','SIMULACIÓN · Biblioteca Zeta inaugura parque público','2026-11-09T12:00:00Z'),('${b}','${source}','https://demo-z09.example.invalid/parque-b','SIMULACIÓN · Biblioteca Zeta inaugura nuevo parque público','2026-11-09T13:00:00Z') on conflict do nothing;
+do $$ begin if (select count(*) from private.source_items where id in ('${a}','${b}') and source_id='${source}')<>2 then raise exception 'FIXTURE_CONFLICT';end if;end $$;
+insert into private.source_group_proposals(id,item_a,item_b) values('${group}',least('${a}'::uuid,'${b}'::uuid),greatest('${a}'::uuid,'${b}'::uuid)) on conflict do nothing;
+commit;`;
+execFileSync('docker',['exec','-i','supabase_db_app','psql','-X','-q','-v','ON_ERROR_STOP=1','-U','postgres','-d','postgres'],{input:sql,stdio:['pipe','ignore','pipe']});
+console.log('Demostración Z09 disponible; se conservan las decisiones editoriales existentes.');

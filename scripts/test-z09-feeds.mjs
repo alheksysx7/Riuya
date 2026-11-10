@@ -1,0 +1,13 @@
+import assert from 'node:assert/strict';import {parseFeed} from '../src/worker/feeds.mjs';
+const rss=Buffer.from('<rss><channel><item><title>Prueba RSS</title><link>https://example.org/a?utm_source=z</link><pubDate>Mon, 09 Nov 2026 12:00:00 GMT</pubDate><description>No guardar este artículo completo.</description></item></channel></rss>');
+const atom=Buffer.from('<feed xmlns="http://www.w3.org/2005/Atom"><entry><title>Prueba Atom</title><link href="/b" rel="alternate"/><updated>2026-11-09T12:00:00Z</updated></entry></feed>');
+assert.deepEqual(parseFeed(rss,'rss','https://example.org/feed'),[{url:'https://example.org/a',title:'Prueba RSS',date:'2026-11-09T12:00:00.000Z'}]);
+assert.equal(parseFeed(atom,'atom','https://example.org/feed')[0].url,'https://example.org/b');
+assert.throws(()=>parseFeed(Buffer.from('<!DOCTYPE x [<!ENTITY x SYSTEM "file:///etc/passwd">]><rss/>'),'rss','https://example.org/'));
+assert.throws(()=>parseFeed(Buffer.from('<rss>'),'rss','https://example.org/'));
+assert.deepEqual(parseFeed(Buffer.from('<rss><channel><item><title>X</title><link>javascript:alert(1)</link><pubDate>Mon, 09 Nov 2026 12:00:00 GMT</pubDate></item></channel></rss>'),'rss','https://example.org/'),[]);
+assert.deepEqual(parseFeed(Buffer.from('<rss><channel><item><title>X</title><link>http://127.0.0.1/admin</link><pubDate>Mon, 09 Nov 2026 12:00:00 GMT</pubDate></item></channel></rss>'),'rss','https://example.org/feed'),[]);
+const json=Buffer.from(JSON.stringify({version:'https://jsonfeed.org/version/1.1',title:'Pruebas',items:[{id:'1',url:'https://example.org/c',title:'Prueba JSON',date_published:'2026-11-09T12:00:00Z',content_text:'No guardar'}]}));
+assert.deepEqual(parseFeed(json,'api','https://example.org/feed.json'),[{url:'https://example.org/c',title:'Prueba JSON',date:'2026-11-09T12:00:00.000Z'}]);
+assert.throws(()=>parseFeed(Buffer.from('{"items":[]}'),'api','https://example.org/feed.json'));
+console.log('Z09 feeds: RSS, Atom, JSON Feed, metadatos y XML peligroso: OK');

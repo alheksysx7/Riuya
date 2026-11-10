@@ -1,0 +1,14 @@
+import {spawn,execFileSync} from 'node:child_process';import {randomUUID} from 'node:crypto';import assert from 'node:assert/strict';
+const sql=q=>execFileSync('docker',['exec','-i','supabase_db_app','psql','-X','-qAt','-v','ON_ERROR_STOP=1','-U','postgres','-d','postgres'],{input:q,encoding:'utf8'}).trim();
+if(sql("select count(*) from private.jobs where status in ('queued','running')")!=='0')throw Error('Hay trabajos activos; prueba omitida.');
+const u=randomUUID(),sid=randomUUID(),j=randomUUID();let worker;
+try{
+ sql(`insert into auth.users(id,email) values('${u}','z09-${u}@example.invalid');insert into private.profiles(id) values('${u}');insert into private.user_roles(user_id,role) values('${u}','editor');insert into private.sources(id,name,domain,source_type,base_url,verified,is_active,usage_policy,verified_by) values('${sid}','SIMULACIÓN fuente','fixtures.example.invalid','rss','https://fixtures.example.invalid/feed',true,true,'Solo pruebas','${u}');insert into private.jobs(id,job_type,payload,dedupe_key,created_by) values('${j}','source.fetch',jsonb_build_object('sourceId','${sid}','sourceVersion',1),'z09-test-${j}','${u}');`);
+ worker=spawn(process.execPath,['--import','./scripts/test-z09-network-preload.mjs','scripts/worker-local.mjs'],{stdio:'ignore',windowsHide:true});
+ let done=false;for(let t=0;t<25;t++){const v=sql(`select count(*) from private.jobs where id='${j}' and status='succeeded' and exists(select 1 from private.jobs where job_type='event.cluster' and payload->>'sourceJobId'='${j}' and status='succeeded')`);if(v==='1'){done=true;break;}await new Promise(r=>setTimeout(r,500));}
+ assert(done);assert.equal(sql(`select count(*) from private.source_items where source_id='${sid}'`),'2');assert.equal(sql(`select count(*) from private.source_items where source_id='${sid}' and event_id is not null`),'0');assert.equal(sql(`select count(*) from private.source_group_proposals g join private.source_items a on a.id=g.item_a join private.source_items b on b.id=g.item_b where a.source_id='${sid}' and b.source_id='${sid}' and g.status='proposed'`),'1');
+ console.log('Z09 worker: fuente simulada, ingesta y sugerencia sin fusión: OK');
+}finally{
+ if(worker)worker.kill();
+ sql(`delete from private.source_group_proposals where item_a in (select id from private.source_items where source_id='${sid}') or item_b in (select id from private.source_items where source_id='${sid}');delete from private.source_items where source_id='${sid}';delete from private.jobs where job_type='event.cluster' and payload->>'sourceJobId'='${j}';delete from private.jobs where id='${j}' and dedupe_key='z09-test-${j}';delete from private.sources where id='${sid}' and name='SIMULACIÓN fuente';delete from private.user_roles where user_id='${u}';delete from private.profiles where id='${u}';delete from auth.users where id='${u}';`);
+}

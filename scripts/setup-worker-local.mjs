@@ -1,0 +1,10 @@
+import {randomBytes} from 'node:crypto';import {existsSync,readFileSync,writeFileSync} from 'node:fs';import {spawnSync} from 'node:child_process';
+const path='.env.worker.local';let secret;
+if(existsSync(path)){const m=readFileSync(path,'utf8').match(/^RIUYA_WORKER_PASSWORD=([a-f0-9]{64})$/m);if(!m)throw Error('Configuración local de worker inválida');secret=m[1];}else secret=randomBytes(32).toString('hex');
+const sql=`do $$ begin if not exists(select 1 from pg_roles where rolname='riuya_worker_local') then create role riuya_worker_local login nosuperuser nocreatedb nocreaterole inherit nobypassrls; end if; end $$;
+alter role riuya_worker_local password '${secret}';
+grant riuya_worker_client to riuya_worker_local;`;
+const r=spawnSync('docker',['exec','-i','supabase_db_app','psql','-X','-q','-v','ON_ERROR_STOP=1','-U','postgres','-d','postgres'],{input:sql,encoding:'utf8',windowsHide:true});
+if(r.status!==0)throw Error('No se pudo configurar el rol local del worker.');
+if(!existsSync(path))writeFileSync(path,'RIUYA_WORKER_PASSWORD='+secret+'\n',{flag:'wx',mode:0o600});
+console.log('Worker local configurado con rol limitado; credencial guardada en archivo local ignorado.');

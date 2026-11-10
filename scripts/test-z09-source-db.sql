@@ -1,0 +1,32 @@
+begin;
+do $$
+declare u uuid:=gen_random_uuid();v uuid:=gen_random_uuid();sid uuid;jid uuid;job jsonb;info jsonb; items jsonb;reply jsonb;
+begin
+ insert into auth.users(id,email) values(u,'z09-'||u||'@example.invalid'),(v,'z09-'||v||'@example.invalid');
+ insert into private.profiles(id) values(u),(v);
+ insert into private.user_roles(user_id,role) values(u,'editor');
+ perform set_config('request.jwt.claim.sub',v::text,true);
+ begin perform api.editor_save_source(null,null,'Fixture','https://example.org/feed','example.org','rss','Prueba local',true);raise exception 'NONEDITOR_ACCEPTED';exception when insufficient_privilege then null;end;
+ perform set_config('request.jwt.claim.sub',u::text,true);
+ begin perform api.editor_save_source(null,null,'Fixture','https://example.org/feed','example.org','rss','Prueba local',false);raise exception 'UNVERIFIED_ACCEPTED';exception when invalid_parameter_value then null;end;
+ begin perform api.editor_save_source(null,null,'Interno','http://127.0.0.1/feed','127.0.0.1','rss','Prueba local',true);raise exception 'INTERNAL_SOURCE_ACCEPTED';exception when invalid_parameter_value then null;end;
+ reply:=api.editor_save_source(null,null,'Fixture','https://example.org/feed','example.org','rss','Prueba local',true);sid:=(reply->>'id')::uuid;
+ begin perform api.editor_save_source(sid,0,'Fixture','https://example.org/feed','example.org','rss','Prueba local',true);raise exception 'STALE_ACCEPTED';exception when sqlstate 'PT409' then null;end;
+ reply:=api.editor_fetch_source(sid,1);jid:=(reply->>'id')::uuid;
+ begin perform api.editor_fetch_source(sid,1);raise exception 'RATE_LIMIT_BYPASSED';exception when sqlstate 'PT429' then null;end;
+ perform set_config('role','riuya_job_executor',true);
+ job:=private.claim_job('test-source',60);if job->>'id'<>jid::text then raise exception 'CLAIM_FAILED %',job;end if;
+ if private.source_job_info(jid,gen_random_uuid()) is not null then raise exception 'INVALID_LEASE';end if;
+ info:=private.source_job_info(jid,(job->>'leaseToken')::uuid);if info->>'domain'<>'example.org' then raise exception 'SOURCE_MISMATCH';end if;
+ begin perform private.complete_source_job(jid,(job->>'leaseToken')::uuid,'[{"url":"http://127.0.0.1/internal","title":"Interno","date":"2026-11-09T12:00:00Z"}]',null,null);raise exception 'INTERNAL_ITEM_ACCEPTED';exception when invalid_parameter_value then null;end;
+ items:='[{"url":"https://example.org/story","title":"Prueba","date":"2026-11-09T12:00:00Z"},{"url":"https://example.org/story","title":"Duplicada","date":"2026-11-09T12:00:00Z"}]';
+ if not private.complete_source_job(jid,(job->>'leaseToken')::uuid,items,'test-etag',null) then raise exception 'COMPLETE_FAILED';end if;
+ if (select count(*) from private.source_items where source_id=sid)<>1 then raise exception 'DEDUP_FAILED';end if;
+ if private.complete_source_job(jid,(job->>'leaseToken')::uuid,items,null,null) then raise exception 'REPLAYED_LEASE';end if;
+ perform set_config('role','none',true);
+ reply:=api.editor_set_source_active(sid,1,false);if (reply->>'active')::boolean then raise exception 'SOURCE_NOT_DISABLED';end if;
+ begin perform api.editor_fetch_source(sid,2);raise exception 'DISABLED_SOURCE_ACCEPTED';exception when no_data_found then null;end;
+ begin perform api.editor_set_source_active(sid,1,true);raise exception 'STALE_SOURCE_ACCEPTED';exception when sqlstate 'PT409' then null;end;
+ reply:=api.editor_set_source_active(sid,2,true);if not (reply->>'active')::boolean then raise exception 'SOURCE_NOT_ENABLED';end if;
+end $$;
+rollback;

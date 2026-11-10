@@ -1,0 +1,12 @@
+import assert from 'node:assert/strict';import {fixtureDraft,validateCandidate,canonicalUrl,proposeMatch} from '../src/worker/editorial.mjs';
+const src={key:'f1',name:'Fuente ficticia',date:'2026-11-09',url:'https://example.org/noticia'};const c=fixtureDraft(src);
+assert.equal(c.opinions.length,8);assert.match(c.title,/SIMULACIÓN/);
+assert.throws(()=>validateCandidate({...c,paragraphs:['Cita inventada [f2]']},[src]));
+assert.throws(()=>validateCandidate({...c,opinions:[...c.opinions.slice(0,7),c.opinions[0]]},[src]));
+assert.throws(()=>validateCandidate({...c,sources:[{...src,url:'https://elsewhere.example/'}]},[src]));
+assert.equal(canonicalUrl('https://EXAMPLE.ORG/x?utm_source=a&b=2&a=1#x'),'https://example.org/x?a=1&b=2');
+const a={title:'Ciudad anuncia nuevo parque público',date:'2026-11-09',entities:['Ciudad']};
+assert(proposeMatch(a,{title:'Ciudad anuncia nuevo parque',date:'2026-11-10',entities:['Ciudad']}));
+assert(!proposeMatch(a,{title:'Ciudad anuncia nuevo parque',date:'2026-11-20',entities:['Ciudad']}));
+assert(!proposeMatch(a,{title:'Ciudad anuncia nuevo parque',date:'2026-11-10',entities:['Otro']}));
+console.log('Z09 editorial: citas, ocho voces, URLs y agrupación propuesta: OK');

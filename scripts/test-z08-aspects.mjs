@@ -1,0 +1,10 @@
+import assert from 'node:assert/strict';import {personalAspects,communityAspects} from '../src/lib/aspects.ts';
+const joy={dimension:'emotion',key:'joy',weight:7000},fear={dimension:'emotion',key:'fear',weight:3000},focus={dimension:'approach',key:'reflection',weight:10000};
+const one=[[joy,fear,focus],[]], v=personalAspects(one);
+assert.equal(v.emotion.coverage,0.5);assert.equal(v.emotion.items[0].percentage,70);assert.equal(v.emotion.items[1].percentage,30);assert.equal(v.approach.coverage,0.5);assert.equal(v.stance,null);
+assert.equal(personalAspects([]).emotion,null);
+assert.equal(communityAspects(Array.from({length:9},()=>one)).emotion,null);
+assert.equal(communityAspects([...Array.from({length:9},()=>one),[]]).emotion,null);
+const c=communityAspects(Array.from({length:10},()=>one));assert(Math.abs(c.emotion.items[0].percentage-70)<1e-10);
+assert.throws(()=>personalAspects([[{...joy,weight:6000}]]));
+console.log('Z08 aspectos: cobertura, pesos, Ninguna y umbral: OK');
