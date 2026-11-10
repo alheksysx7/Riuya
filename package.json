@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "doctor": "node scripts/doctor.mjs",
     "db:migrate:local": "supabase migration up --local",
-    "test:db": "node scripts/test-db.mjs"
+    "test:db": "node scripts/test-db.mjs",
+    "pruebas": "node scripts/start-local.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "0.12.7",
