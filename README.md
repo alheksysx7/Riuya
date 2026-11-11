@@ -13,6 +13,7 @@ Deja PowerShell abierto durante las pruebas. Pulsa Ctrl+C para detener la aplica
 
 - Aplicación: http://127.0.0.1:3102/
 - Mi actividad: http://127.0.0.1:3102/actividad
+- Preferencias de avisos: http://127.0.0.1:3102/preferencias
 - Panel editorial: http://127.0.0.1:3102/admin
 - Buzón local: http://127.0.0.1:54324/
 - Supabase Studio: http://127.0.0.1:54323/
@@ -35,3 +36,7 @@ El worker usa un rol limitado y selecciona Node 24.22.1 con NVM o RIUYA_NODE. Ma
 Las fuentes admitidas son RSS, Atom y JSON Feed; solo se aceptan direcciones IPv4 públicas y enlaces al mismo dominio del feed. Por defecto se consulta una fuente como máximo cada 30 minutos; no se guardan artículos completos. No incluyas credenciales en URLs.
 
 Ollama es opcional para la demostración ficticia. Para generación real debe estar ejecutándose en 127.0.0.1:11434 y disponer del modelo local configurado; el valor predeterminado es qwen3:8b. RIUYA_OLLAMA_MODEL permite seleccionar otro modelo instalado. La generación recibe solo título y metadatos de la fuente; una persona debe verificar y completar los hechos. El umbral de agrupación puede configurarse con RIUYA_CLUSTER_THRESHOLD (0 a 1; predeterminado 0.5) y RIUYA_CLUSTER_DAYS (hasta 30; predeterminado 3).
+
+## Avisos locales
+
+Los canales de noticias y resultados son opcionales e independientes. La agenda se ejecuta mientras el worker local está activo. El transporte actual únicamente registra entregas de prueba en Preferencias; no envía push al navegador ni al móvil.

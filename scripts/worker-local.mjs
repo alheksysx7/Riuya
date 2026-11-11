@@ -1,9 +1,12 @@
-import {randomUUID} from 'node:crypto';import {readFileSync} from 'node:fs';import pg from 'pg';import {fixtureDraft} from '../src/worker/editorial.mjs';import {processSourceJob} from '../src/worker/source-fetch.mjs';import {processClusterJob} from '../src/worker/cluster.mjs';import {generateWithOllama} from '../src/worker/ollama.mjs';
+import {randomUUID} from 'node:crypto';import {existsSync,readFileSync} from 'node:fs';import pg from 'pg';import {fixtureDraft} from '../src/worker/editorial.mjs';import {processSourceJob} from '../src/worker/source-fetch.mjs';import {processClusterJob} from '../src/worker/cluster.mjs';import {generateWithOllama} from '../src/worker/ollama.mjs';import {processLocalNotification,startNotificationScheduler} from '../src/worker/notification.mjs';
 const raw=readFileSync('.env.worker.local','utf8');const m=raw.match(/^RIUYA_WORKER_PASSWORD=([a-f0-9]{64})$/m);if(!m)throw Error('Ejecuta primero npm run worker:setup');
-const client=new pg.Client({host:'127.0.0.1',port:54322,user:'riuya_worker_local',password:m[1],database:'postgres',connectionTimeoutMillis:5000});
+const configuredTransport=process.env.NOTIFICATION_TRANSPORT||(existsSync('.env.local')?readFileSync('.env.local','utf8').match(/^\s*NOTIFICATION_TRANSPORT\s*=\s*([^\s#]+)\s*$/m)?.[1]:null)||'local';
+if(configuredTransport!=='local')throw Error('Solo está disponible el transporte local.');
+const connection={host:'127.0.0.1',port:54322,user:'riuya_worker_local',password:m[1],database:'postgres',connectionTimeoutMillis:5000};
+const client=new pg.Client(connection);const scheduler=new pg.Client(connection);
 const worker='local-'+randomUUID();let stopping=false;let activeController=null;
 function stop(){stopping=true;activeController?.abort();}process.on('SIGINT',stop);process.on('SIGTERM',stop);
-await client.connect();console.log('Worker local iniciado; procesa fuentes verificadas y propuestas ficticias.');
+await client.connect();await scheduler.connect();const stopScheduler=startNotificationScheduler(scheduler,{onError:()=>console.log('No se pudo comprobar la agenda local.')});console.log('Worker local iniciado; notificaciones solo en modo local.');
 try{
  while(!stopping){
   const {rows}=await client.query('select private.claim_job($1, $2) job',[worker,60]);const job=rows[0].job;
@@ -25,6 +28,7 @@ try{
    }else if(job.type==='source.fetch'){
     const count=await processSourceJob(client,job);console.log('Fuente procesada; elementos recibidos:',count);
    }else if(job.type==='event.cluster'){const count=await processClusterJob(client,job);console.log('Agrupaciones propuestas:',count);
+   }else if(job.type==='notification.send'){await processLocalNotification(client,job);console.log('Entrega local procesada.');
    }else throw Error('UNSUPPORTED_JOB');
   }catch(e){
    const name=e instanceof Error?e.message:'WORKER_ERROR';
@@ -33,4 +37,4 @@ try{
    await client.query('select private.finish_job($1,$2,false,$3,$4)',[job.id,job.leaseToken,permanent.includes(code),code]);console.log('Trabajo no completado:',code);
   }
  }
-}finally{await client.end();}
+}finally{stopScheduler();await Promise.all([client.end(),scheduler.end()]);}

@@ -1,0 +1,43 @@
+begin;
+do $$
+declare u uuid:=gen_random_uuid();late uuid:=gen_random_uuid();v uuid;article uuid:=gen_random_uuid();revision uuid:=gen_random_uuid();job jsonb;i integer;t timestamptz:='2030-01-01 08:00:00+00';snapshot jsonb;
+begin
+ insert into auth.users(id,email) values(u,'z10-'||u||'@example.invalid'),(late,'z10-'||late||'@example.invalid');
+ insert into private.profiles(id) values(u),(late);
+ insert into private.articles(id,category_id) select article,id from private.categories limit 1;
+ insert into private.article_revisions(id,article_id,revision_number,title,micro_summary,full_paragraphs) values(revision,article,1,'SIMULACIÓN resultados Z10','Prueba','[]');
+ update private.articles set status='published',current_revision_id=revision,published_at='2026-01-01' where id=article;
+ insert into private.article_user_state(user_id,article_id,omitted_at) values(u,article,'2026-01-01'),(late,article,'2026-01-01');
+ for i in 1..9 loop
+  v:=gen_random_uuid();insert into auth.users(id,email) values(v,'z10-'||v||'@example.invalid');insert into private.profiles(id) values(v);
+  insert into private.participations(user_id,article_id,revision_id,choice_kind,operation_id,payload_hash) values(v,article,revision,'none',gen_random_uuid(),repeat('a',64));
+ end loop;
+ perform set_config('request.jwt.claim.sub',u::text,true);perform api.update_notification_settings(false,true,8,'UTC',0);
+ update private.notification_preferences set schedule_changed_at=t-interval '1 day',news_changed_at=t-interval '1 day',results_changed_at=t-interval '1 day' where user_id=u;
+ perform set_config('role','riuya_notification_worker',true);
+ if private.schedule_notification_user_at(u,t)<>0 then raise exception 'NINE_SHOULD_NOT_NOTIFY';end if;
+ perform set_config('role','none',true);
+ v:=gen_random_uuid();insert into auth.users(id,email) values(v,'z10-'||v||'@example.invalid');insert into private.profiles(id) values(v);
+ insert into private.participations(user_id,article_id,revision_id,choice_kind,operation_id,payload_hash) values(v,article,revision,'none',gen_random_uuid(),repeat('a',64));
+ perform set_config('request.jwt.claim.sub',late::text,true);perform api.update_notification_settings(false,true,8,'UTC',0);
+ update private.notification_preferences set schedule_changed_at=t-interval '1 day',news_changed_at=t-interval '1 day',results_changed_at=t-interval '1 day' where user_id=late;
+ perform set_config('role','riuya_notification_worker',true);
+ if private.schedule_notification_user_at(late,t)<>0 then raise exception 'RETROACTIVE_RESULTS';end if;
+ if private.schedule_notification_user_at(u,t)<>1 then raise exception 'THRESHOLD_NOTIFICATION_MISSING';end if;
+ update private.jobs set status='running',locked_by='z10-test',lease_token=gen_random_uuid(),lease_until=now()+interval '60 seconds' where id=(select id from private.jobs where created_by=u and job_type='notification.send' and status='queued' order by id limit 1) returning jsonb_build_object('id',id,'leaseToken',lease_token) into job;
+ if not private.complete_notification_at((job->>'id')::uuid,(job->>'leaseToken')::uuid,t+interval '10 seconds') then raise exception 'FIRST_RESULT_SEND';end if;
+ if private.schedule_notification_user_at(u,t+interval '1 day')<>0 then raise exception 'UNCHANGED_RESULT_NOTIFIED';end if;
+ perform set_config('role','none',true);
+ v:=gen_random_uuid();insert into auth.users(id,email) values(v,'z10-'||v||'@example.invalid');insert into private.profiles(id) values(v);
+ insert into private.participations(user_id,article_id,revision_id,choice_kind,operation_id,payload_hash) values(v,article,revision,'none',gen_random_uuid(),repeat('a',64));
+ perform set_config('role','riuya_notification_worker',true);
+ if private.schedule_notification_user_at(u,t+interval '1 day')<>1 then raise exception 'CHANGED_RESULTS_NOT_NOTIFIED';end if;
+ update private.jobs set status='running',locked_by='z10-test',lease_token=gen_random_uuid(),lease_until=now()+interval '60 seconds' where id=(select id from private.jobs where created_by=u and job_type='notification.send' and status='queued' order by id limit 1) returning jsonb_build_object('id',id,'leaseToken',lease_token) into job;
+ perform set_config('role','none',true);
+ update private.articles set status='withdrawn',withdrawn_at=now(),withdrawal_reason='Retirada de prueba' where id=article;
+ perform set_config('role','riuya_notification_worker',true);
+ if not private.complete_notification_at((job->>'id')::uuid,(job->>'leaseToken')::uuid,t+interval '1 day 10 seconds') then raise exception 'WITHDRAWAL_HANDLE_FAILED';end if;
+ if (select count(*) from private.notification_deliveries where user_id=u and status='sent')<>1 or (select count(*) from private.notification_deliveries where user_id=u and status='cancelled')<>1 then raise exception 'WITHDRAWN_NOTIFICATION_SENT';end if;
+ perform set_config('role','none',true);
+end $$;
+rollback;

@@ -1,0 +1,42 @@
+begin;
+do $$
+declare u uuid:=gen_random_uuid();v uuid;article uuid:=gen_random_uuid();revision uuid:=gen_random_uuid();article2 uuid:=gen_random_uuid();revision2 uuid:=gen_random_uuid();job jsonb;i integer;n integer;t timestamptz:='2026-11-09 13:00:00+00';h jsonb;
+begin
+ insert into auth.users(id,email) values(u,'z10-'||u||'@example.invalid');insert into private.profiles(id) values(u);
+ perform set_config('request.jwt.claim.sub',u::text,true);perform api.update_notification_settings(true,true,8,'America/Guayaquil',0);
+ update private.notification_preferences set schedule_changed_at=t-interval '1 day',news_changed_at=t-interval '1 day',results_changed_at=t-interval '1 day',news_seen_at=t-interval '1 day',results_snapshot='{}' where user_id=u;
+ insert into private.articles(id,category_id) select article,id from private.categories limit 1;
+ insert into private.article_revisions(id,article_id,revision_number,title,micro_summary,full_paragraphs) values(revision,article,1,'SIMULACIÓN noticia Z10','Prueba','[]');
+ update private.articles set status='published',current_revision_id=revision,published_at=t-interval '30 minutes' where id=article;
+ insert into private.article_user_state(user_id,article_id,omitted_at) values(u,article,t-interval '1 hour');
+ for i in 1..10 loop
+  v:=gen_random_uuid();insert into auth.users(id,email) values(v,'z10-'||v||'@example.invalid');insert into private.profiles(id) values(v);
+  insert into private.participations(user_id,article_id,revision_id,choice_kind,operation_id,payload_hash) values(v,article,revision,'none',gen_random_uuid(),repeat('a',64));
+ end loop;
+ perform set_config('role','riuya_notification_worker',true);
+ if private.schedule_notification_user_at(u,t-interval '1 second')<>0 then raise exception 'EARLY_SEND';end if;
+ if private.schedule_notification_user_at(u,t+interval '2 minutes')<>0 then raise exception 'RETROACTIVE_CATCHUP';end if;
+ if private.schedule_notification_user_at(u,t)<>2 then raise exception 'BOTH_CHANNELS_EXPECTED';end if;
+ if private.schedule_notification_user_at(u,t+interval '30 seconds')<>0 then raise exception 'DUPLICATE_SCHEDULE';end if;
+ update private.jobs set status='running',locked_by='z10-test',lease_token=gen_random_uuid(),lease_until=now()+interval '60 seconds' where id=(select id from private.jobs where created_by=u and job_type='notification.send' and status='queued' order by id limit 1) returning jsonb_build_object('id',id,'leaseToken',lease_token) into job;
+ if job is null then raise exception 'FIRST_CLAIM';end if;
+ if not private.complete_notification_at((job->>'id')::uuid,(job->>'leaseToken')::uuid,t+interval '10 seconds') then raise exception 'FIRST_SEND';end if;
+ update private.jobs set status='running',locked_by='z10-test',lease_token=gen_random_uuid(),lease_until=now()+interval '60 seconds' where id=(select id from private.jobs where created_by=u and job_type='notification.send' and status='queued' order by id limit 1) returning jsonb_build_object('id',id,'leaseToken',lease_token) into job;
+ if job is null then raise exception 'SECOND_CLAIM';end if;
+ if not private.complete_notification_at((job->>'id')::uuid,(job->>'leaseToken')::uuid,t+interval '20 seconds') then raise exception 'SECOND_SEND';end if;
+ if (select count(*) from private.notification_deliveries where user_id=u and status='sent')<>2 then raise exception 'DELIVERIES_MISSING';end if;
+ perform set_config('role','none',true);
+ h:=api.notification_history();if jsonb_array_length(h)<>2 or h::text ~ 'participants|percentage|rami|opinion' then raise exception 'HISTORY_LEAK';end if;
+ insert into private.articles(id,category_id) select article2,id from private.categories limit 1;
+ insert into private.article_revisions(id,article_id,revision_number,title,micro_summary,full_paragraphs) values(revision2,article2,1,'SIMULACIÓN novedad Z10','Prueba','[]');
+ update private.articles set status='published',current_revision_id=revision2,published_at=t+interval '90 minutes' where id=article2;
+ update private.notification_preferences set timezone='Pacific/Kiritimati',schedule_changed_at=t+interval '1 hour',news_changed_at=t+interval '1 hour',results_changed_at=t+interval '1 hour' where user_id=u;
+ perform set_config('role','riuya_notification_worker',true);
+ if private.schedule_notification_user_at(u,'2026-11-09 18:00:00+00')<>0 then raise exception 'TWENTY_HOUR_BYPASS';end if;
+ if private.schedule_notification_user_at(u,'2026-11-10 18:00:00+00')<>1 then raise exception 'NEXT_DAY_NEWS_MISSING';end if;
+ perform set_config('role','none',true);
+ perform api.update_notification_settings(false,true,8,'Pacific/Kiritimati',1);
+ if exists(select 1 from private.notification_deliveries where user_id=u and status='queued') then raise exception 'OPT_OUT_PENDING';end if;
+ if exists(select 1 from private.jobs where created_by=u and job_type='notification.send' and status in ('queued','running')) then raise exception 'OPT_OUT_JOB_PENDING';end if;
+end $$;
+rollback;

@@ -1,0 +1,20 @@
+import {execFileSync} from 'node:child_process';import {randomUUID} from 'node:crypto';import assert from 'node:assert/strict';import pg from 'pg';
+const status=JSON.parse(execFileSync(process.execPath,['node_modules/supabase/dist/supabase.js','status','-o','json'],{encoding:'utf8',stdio:['ignore','pipe','ignore']}));if(status.API_URL!=='http://127.0.0.1:54321'||!status.DB_URL?.includes('127.0.0.1:54322'))throw Error('Solo entorno local');
+const u=randomUUID(),a=randomUUID(),r=randomUUID(),c1=new pg.Client({connectionString:status.DB_URL}),c2=new pg.Client({connectionString:status.DB_URL});let setup=false;
+try{
+ await Promise.all([c1.connect(),c2.connect()]);
+ await c1.query('begin');await c1.query("insert into auth.users(id,email) values($1,$2)",[u,'z10-'+u+'@example.invalid']);await c1.query('insert into private.profiles(id) values($1)',[u]);
+ await c1.query("insert into private.notification_preferences(user_id,news_opt_in,hour_local,timezone,news_enabled_at,news_seen_at,schedule_changed_at,news_changed_at,results_changed_at) values($1,true,8,'UTC','2029-12-31','2029-12-31','2029-12-31','2029-12-31','2029-12-31')",[u]);
+ await c1.query("insert into private.notification_deliveries(user_id,channel,local_date,timezone,scheduled_at,status,sent_at,is_example) values($1,'news','2029-12-31','UTC','2030-01-01 07:30:00+00','sent','2030-01-01 07:30:00+00',true)",[u]);
+ await c1.query('insert into private.articles(id,category_id) select $1,id from private.categories limit 1',[a]);await c1.query("insert into private.article_revisions(id,article_id,revision_number,title,micro_summary,full_paragraphs) values($1,$2,1,'SIMULACIÓN Z10','Prueba','[]')",[r,a]);await c1.query("update private.articles set status='published',current_revision_id=$2,published_at='2030-01-01 07:30:00+00' where id=$1",[a,r]);await c1.query('commit');setup=true;
+ async function run(client){await client.query('begin');try{await client.query('set local role riuya_notification_worker');const result=await client.query("select private.schedule_notification_user_at($1,'2030-01-01 08:00:00+00') n",[u]);await client.query('commit');return result.rows[0].n;}catch(e){await client.query('rollback');throw e;}}
+ const values=await Promise.all([run(c1),run(c2)]);assert.deepEqual(values.sort(),[0,1]);
+ const rows=await c1.query("select count(*)::int n from private.notification_deliveries where user_id=$1 and channel='news' and not is_example",[u]);assert.equal(rows.rows[0].n,1);
+ const rights=await c1.query("select has_function_privilege('riuya_worker_local','private.schedule_notifications()','execute') wrapper,has_function_privilege('riuya_worker_local','private.schedule_notification_user_at(uuid,timestamptz)','execute') injected,has_function_privilege('riuya_worker_local','private.complete_notification_at(uuid,uuid,timestamptz)','execute') fakeclock,has_function_privilege('riuya_worker_local','private.notification_result_snapshot(uuid)','execute') snapshot,has_table_privilege('riuya_worker_local','private.notification_preferences','select') prefs");
+ assert.equal(rights.rows[0].wrapper,true);assert.equal(rights.rows[0].injected,false);assert.equal(rights.rows[0].fakeclock,false);assert.equal(rights.rows[0].snapshot,false);assert.equal(rights.rows[0].prefs,false);
+ console.log('Z10 concurrencia: dos planificadores, una entrega y reloj simulado aislado: OK');
+}finally{
+ await c1.query('rollback').catch(()=>{});await c2.query('rollback').catch(()=>{});
+ if(setup){await c1.query("delete from private.jobs where created_by=$1 and job_type='notification.send'",[u]);await c1.query('delete from private.notification_deliveries where user_id=$1',[u]);await c1.query("update private.articles set status='draft',current_revision_id=null where id=$1",[a]);await c1.query('delete from private.article_revisions where article_id=$1',[a]);await c1.query('delete from private.articles where id=$1',[a]);await c1.query('delete from auth.users where id=$1',[u]);}
+ await Promise.all([c1.end().catch(()=>{}),c2.end().catch(()=>{})]);
+}
