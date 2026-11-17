@@ -40,3 +40,17 @@ Ollama es opcional para la demostración ficticia. Para generación real debe es
 ## Avisos locales
 
 Los canales de noticias y resultados son opcionales e independientes. La agenda se ejecuta mientras el worker local está activo. El transporte actual únicamente registra entregas de prueba en Preferencias; no envía push al navegador ni al móvil.
+
+## Compilación local para revisión
+
+Con Docker y Supabase local disponibles, desde PowerShell en esta carpeta:
+
+```powershell
+$env:RIUYA_ENABLE_ACCOUNT_DELETION='0'
+npm run build
+npm run start -- -H 127.0.0.1 -p 3102
+```
+
+Abrir http://127.0.0.1:3102/. Pulsa Ctrl+C para detener la aplicación. Este servidor usa el build optimizado; no inicia Supabase ni el worker. La baja permanece deshabilitada mientras Z11 esté pendiente.
+
+`http://127.0.0.1:3102/api/health/live` comprueba que responda la aplicación. `/api/health/ready` comprueba la conexión y el marcador de compatibilidad del esquema; no verifica todos los servicios ni reemplaza una prueba funcional. La preparación para servidor y sus pendientes están registrados en `../docs/entregas/Z12_preparacion_servidor.md`.

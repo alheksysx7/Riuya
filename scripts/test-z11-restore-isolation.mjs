@@ -1,0 +1,12 @@
+import assert from 'node:assert/strict';
+import {evaluateRestoreIsolation} from '../src/worker/purge-restore-isolation.mjs';
+const safe={containers:{supabase_db_app:'running'},dbBindings:[{HostIp:'127.0.0.1',HostPort:'54322'}],appPortOpen:false,apiPortOpen:false,workerRunning:false,authPublished:false,storagePublished:false};
+assert.deepEqual(evaluateRestoreIsolation(safe),{blocked:false,blockers:[]});
+const unsafe={...safe,containers:{...safe.containers,supabase_kong_app:'paused',supabase_rest_app:'restarting'},dbBindings:[{HostIp:'0.0.0.0',HostPort:'54322'}],appPortOpen:true,apiPortOpen:true,workerRunning:true,authPublished:true,storagePublished:true};
+const result=evaluateRestoreIsolation(unsafe);
+for(const code of ['SERVICIO_ABIERTO:supabase_kong_app','SERVICIO_ABIERTO:supabase_rest_app','BASE_PUBLICADA_O_NO_VERIFICABLE','PUERTO_APP_ABIERTO','PUERTO_API_ABIERTO','WORKER_ACTIVO','AUTH_PUBLICADO','STORAGE_PUBLICADO'])assert.ok(result.blockers.includes(code));
+assert.equal(result.blocked,true);
+assert.ok(evaluateRestoreIsolation({...safe,dbBindings:[]}).blocked);
+assert.ok(evaluateRestoreIsolation({...safe,containers:{}}).blocked);
+assert.throws(()=>evaluateRestoreIsolation({...safe,workerRunning:undefined}),/RESTORE_ISOLATION_UNKNOWN/);
+console.log('Z11 restauración: servicios, puertos, worker y base no aislada detectados: OK');

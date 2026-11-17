@@ -1,0 +1,34 @@
+begin;
+grant riuya_storage_purger to postgres with inherit false;
+set local role riuya_purge_executor;
+grant execute on function private.purge_account_contributions(uuid,uuid),private.purge_editorial_references(uuid,uuid) to postgres;
+reset role;
+do $$
+declare u uuid:=gen_random_uuid();v uuid:=gen_random_uuid();rid uuid:=gen_random_uuid();jid uuid:=gen_random_uuid();tok uuid:=gen_random_uuid();bucket text:='z11-policy-'||gen_random_uuid();obj uuid:=gen_random_uuid();claims jsonb;amount integer;
+begin
+ insert into auth.users(id,email) values(u,'z11-policy-'||u||'@example.invalid'),(v,'z11-policy-'||v||'@example.invalid');
+ insert into private.profiles(id,account_status) values(u,'deletion_pending'),(v,'active');
+ insert into private.account_deletion_requests(id,user_id,requested_at,recover_until,status) values(rid,u,now()-interval '8 days',now()-interval '1 day','pending');
+ insert into private.jobs(id,job_type,payload,dedupe_key,created_by,status,locked_by,lease_token,lease_until) values(jid,'account.purge',jsonb_build_object('requestId',rid),'z11-policy-'||jid,u,'running','fixture',tok,now()+interval '1 hour');
+ perform private.purge_account_contributions(jid,tok);perform private.purge_editorial_references(jid,tok);
+ insert into storage.buckets(id,name) values(bucket,bucket);
+ insert into storage.objects(id,bucket_id,name,owner_id) values(obj,bucket,'a',u::text),(gen_random_uuid(),bucket,'b',v::text);
+ claims:=jsonb_build_object('role','riuya_storage_purger','sub',u,'purge_job',jid,'purge_lease',tok);
+ perform set_config('request.jwt.claims',claims::text,true);
+ perform set_config('role','riuya_storage_purger',true);
+ select count(*) into amount from storage.objects where bucket_id=bucket;
+ if amount<>1 then raise exception 'POLICY_SCOPE %',amount;end if;
+ perform set_config('role','none',true);
+ update storage.objects set owner_id=v::text where id=obj;
+ perform set_config('role','riuya_storage_purger',true);
+ select count(*) into amount from storage.objects where bucket_id=bucket;
+ if amount<>0 then raise exception 'TRANSFERRED_OBJECT_VISIBLE';end if;
+ perform set_config('role','none',true);
+ update storage.objects set owner_id=u::text where id=obj;
+ update private.jobs set lease_until=clock_timestamp()-interval '1 second' where id=jid;
+ perform set_config('role','riuya_storage_purger',true);
+ select count(*) into amount from storage.objects where bucket_id=bucket;
+ if amount<>0 then raise exception 'EXPIRED_LEASE_VISIBLE';end if;
+ perform set_config('role','none',true);
+end $$;
+rollback;

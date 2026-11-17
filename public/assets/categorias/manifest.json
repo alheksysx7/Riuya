@@ -1,0 +1,32 @@
+{
+  "version": "propuesta-2026-11-16",
+  "status": "pendiente_revision_usuario",
+  "origin": "Generadas con imagegen a partir de la referencia visual indicada por el usuario",
+  "assets": {
+    "ciencia": {
+      "path": "/assets/categorias/ciencia-glass-v1.png",
+      "sha256": "1d82ba292d4c38127175819e16d7e00c91e38478d4b131e84a671b1d4731fb8c"
+    },
+    "politica": {
+      "path": "/assets/categorias/politica-glass-v1.png",
+      "sha256": "6bfe7b67dbfcbc8a8f5c3fff65da0fa39ccfefbf74d309d9a89ed99c51c45651"
+    },
+    "economia": {
+      "path": "/assets/categorias/economia-glass-v1.png",
+      "sha256": "55a2db04886d3de5572935646a891916c1fb6d870fb3f356157cf3e744234df1"
+    },
+    "tecnologia": {
+      "path": "/assets/categorias/tecnologia-glass-v1.png",
+      "sha256": "ae2e40e5bf703638ed69fd80427f922e1f41e827bf5afe3146ead31ec2a1d190"
+    },
+    "sociedad": {
+      "path": "/assets/categorias/sociedad-glass-v1.png",
+      "sha256": "8817d1769ba6d89b665f0dee3594659b3a3e911231a3b2cf5803cb13ba9a9bd2"
+    },
+    "cultura": {
+      "path": "/assets/categorias/cultura-glass-v1.png",
+      "sha256": "d6d2f27e2d91e66e65451329f12fc14abb62e94b3c581043909b82d1267c60b4"
+    }
+  },
+  "license": "pendiente de revisión para producción"
+}

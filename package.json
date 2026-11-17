@@ -13,7 +13,15 @@
     "test:db": "node scripts/test-db.mjs",
     "pruebas": "node scripts/start-local.mjs",
     "worker:setup": "node scripts/setup-worker-local.mjs",
-    "worker:local": "node scripts/run-worker.mjs"
+    "worker:local": "node scripts/run-worker.mjs",
+    "z11:setup-registro": "node scripts/setup-z11-journal.mjs",
+    "z11:aislamiento": "node scripts/check-z11-restore-isolation.mjs",
+    "z11:verificar-recuperacion": "node scripts/check-z11-recovery.mjs",
+    "z11:custodia": "node scripts/custody-backup.mjs",
+    "metricas:local": "node scripts/metrics-local.mjs",
+    "diagnostico:cola": "node scripts/diagnostico-cola-local.mjs",
+    "z12:verificar-huellas": "node scripts/verificar-z12-huellas.mjs",
+    "z12:verificar-recursos": "node scripts/verificar-recursos-categorias.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "0.12.7",
@@ -38,5 +46,10 @@
   },
   "engines": {
     "node": "24.22.1"
+  },
+  "overrides": {
+    "@typescript-eslint/typescript-estree": {
+      "minimatch": "11.0.1"
+    }
   }
 }

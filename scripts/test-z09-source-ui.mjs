@@ -13,10 +13,10 @@ try{
  await form.getByLabel('Nombre de la fuente').fill(name);await form.getByLabel('URL del feed').fill('https://fixtures.example.invalid/feed');await form.getByLabel('Condiciones de uso',{exact:true}).fill('Simulación: sin contenido real.');await form.getByLabel('He verificado la fuente y sus condiciones de uso.').check();await form.getByRole('button',{name:'Guardar fuente verificada'}).click();await page.getByText('Fuente verificada guardada.').waitFor();
  const after=await page.locator('[data-source-id]').evaluateAll(xs=>xs.map(x=>x.dataset.sourceId));sid=after.find(x=>!before.includes(x));assert(sid&&/^[0-9a-f-]{36}$/.test(sid));
  await page.locator('[data-source-id="'+sid+'"]').getByRole('button',{name:'Consultar fuente'}).click();await page.getByText('Ingesta en cola.',{exact:false}).waitFor();
- const r=await client.query('select private.claim_job($1,60) job',['test-source-ui']);const job=r.rows[0].job;assert(job&&job.payload.sourceId===sid);jid=job.id;
+ const r=await client.query('select private.claim_job_filtered($1,60,false) job',['test-source-ui']);const job=r.rows[0].job;assert(job&&job.payload.sourceId===sid);jid=job.id;
  const fake=async(url,options)=>{assert.equal(url,'https://fixtures.example.invalid/feed');assert.deepEqual(options.allowedDomains,['fixtures.example.invalid']);return {status:200,headers:{etag:'fixture',lastModified:null},body:Buffer.from('<rss><channel><item><title>SIMULACIÓN Biblioteca Zeta inaugura parque público</title><link>https://fixtures.example.invalid/noticia?utm_source=test</link><pubDate>Mon, 09 Nov 2026 12:00:00 GMT</pubDate><description>CONTENIDO_COMPLETO_NO_GUARDAR</description></item><item><title>SIMULACIÓN Biblioteca Zeta inaugura nuevo parque público</title><link>https://fixtures.example.invalid/noticia-2</link><pubDate>Mon, 09 Nov 2026 13:00:00 GMT</pubDate></item></channel></rss>')};};
  assert.equal(await processSourceJob(client,job,fake),2);
- const next=await client.query('select private.claim_job($1,60) job',['test-cluster-ui']);const cluster=next.rows[0].job;assert(cluster&&cluster.type==='event.cluster'&&cluster.payload.sourceJobId===jid);clusterId=cluster.id;
+ const next=await client.query('select private.claim_job_filtered($1,60,false) job',['test-cluster-ui']);const cluster=next.rows[0].job;assert(cluster&&cluster.type==='event.cluster'&&cluster.payload.sourceJobId===jid);clusterId=cluster.id;
  assert((await processClusterJob(client,cluster))>=1);
  const groupId=sql(`select g.id from private.source_group_proposals g join private.source_items a on a.id=g.item_a join private.source_items b on b.id=g.item_b where a.source_id='${sid}' and b.source_id='${sid}' limit 1`);
  assert(/^[0-9a-f-]{36}$/.test(groupId));await page.reload();
@@ -26,7 +26,7 @@ try{
  const beforeJobs=await page.locator('[data-job-id]').evaluateAll(xs=>xs.map(x=>x.dataset.jobId));
  await itemLink.locator('..').getByRole('button',{name:'Generar borrador con Ollama'}).click();await page.getByText('Propuesta para Ollama en cola.',{exact:false}).waitFor();
  let jobs=await page.locator('[data-job-id]').evaluateAll(xs=>xs.map(x=>x.dataset.jobId));ollamaId=jobs.find(x=>!beforeJobs.includes(x));assert(ollamaId&&/^[0-9a-f-]{36}$/.test(ollamaId));
- const gen=(await client.query('select private.claim_job($1,60) job',['test-ollama-ui'])).rows[0].job;assert(gen&&gen.id===ollamaId);
+ const gen=(await client.query('select private.claim_job_filtered($1,60,false) job',['test-ollama-ui'])).rows[0].job;assert(gen&&gen.id===ollamaId);
  const info=(await client.query('select private.ollama_job_info($1,$2) info',[gen.id,gen.leaseToken])).rows[0].info;
  const mock=async(url)=>url.endsWith('/api/tags')?Response.json({models:[{name:'qwen3:8b',digest:'a'.repeat(64)}]}):Response.json({done:true,response:JSON.stringify(fixtureDraft(info.source))});
  const generated=await generateWithOllama({source:info.source,title:info.title},mock);

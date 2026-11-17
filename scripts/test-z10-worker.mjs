@@ -4,4 +4,9 @@ await processLocalNotification(client,{id:'job-id',leaseToken:'lease-id'});asser
 await assert.rejects(()=>processLocalNotification({query:async()=>({rows:[{ok:false}]})},{id:'job',leaseToken:'lease'}),/NOTIFICATION_LEASE_EXPIRED/);
 calls=[];const stop=startNotificationScheduler(client);await new Promise(resolve=>setImmediate(resolve));stop();assert.equal(calls.length,1);assert.match(calls[0].sql,/schedule_notifications/);
 let errors=0;const stopError=startNotificationScheduler({query:async()=>{throw Error('TEST');}},{onError:()=>errors++});await new Promise(resolve=>setImmediate(resolve));stopError();assert.equal(errors,1);
+let blockedCalls=0,blockedErrors=0;
+const stopBlocked=startNotificationScheduler({query:async()=>{blockedCalls++;}},
+ {beforeSchedule:async()=>{throw Error('ROLE_CHANGED');},onError:()=>blockedErrors++});
+await new Promise(resolve=>setImmediate(resolve));stopBlocked();
+assert.equal(blockedCalls,0);assert.equal(blockedErrors,1);
 console.log('Z10 worker: agenda, captura local y lease inválido: OK');
